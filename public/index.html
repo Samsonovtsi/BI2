@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ЭР и АКК — Аналитика по допсервисам</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EFF1EE;
+    --panel:#FFFFFF;
+    --ink:#1B2420;
+    --ink-soft:#5B655F;
+    --line:#DADFDA;
+    --brand:#1F6F5C;
+    --brand-dark:#154E41;
+    --brand-tint:#E4F0EA;
+    --gold:#B9862E;
+    --gold-tint:#F7ECD8;
+    --red:#B5453F;
+    --red-tint:#F6E4E2;
+    --yellow:#C0932B;
+    --yellow-tint:#F8EFD9;
+    --green:#2F7A54;
+    --green-tint:#E3F1E8;
+    --grey-line:#B7BDB9;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Manrope',system-ui,sans-serif;
+    font-size:14px;
+    line-height:1.45;
+  }
+  .num{font-family:'IBM Plex Mono',monospace;}
+  a{color:inherit;}
+
+  .app{display:flex; min-height:100vh;}
+
+  /* Sidebar */
+  .sidebar{
+    width:236px;
+    flex:0 0 236px;
+    background:var(--brand-dark);
+    color:#EAF1EC;
+    padding:22px 16px;
+    display:flex;
+    flex-direction:column;
+    gap:26px;
+  }
+  .brand{padding:0 6px;}
+  .brand .kicker{font-size:11px; letter-spacing:.02em; color:#9FC2AF; margin-bottom:4px;}
+  .brand h1{font-size:19px; margin:0; font-weight:700; line-height:1.25;}
+  .brand .sub{font-size:12px; color:#B7D3C2; margin-top:6px;}
+
+  nav{display:flex; flex-direction:column; gap:4px;}
+  .navlink{
+    display:flex; align-items:center; gap:10px;
+    padding:10px 12px;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:600;
+    color:#CFE3D8;
+    font-size:13.5px;
+    border:1px solid transparent;
+  }
+  .navlink .dot{width:7px; height:7px; border-radius:50%; background:#5D9C7D; flex:0 0 7px;}
+  .navlink:hover{background:rgba(255,255,255,.06);}
+  .navlink.active{background:#EAF1EC; color:var(--brand-dark);}
+  .navlink.active .dot{background:var(--gold);}
+
+  .sidebar-foot{
+    margin-top:auto;
+    font-size:11.5px;
+    color:#89AB98;
+    border-top:1px solid rgba(255,255,255,.12);
+    padding-top:14px;
+  }
+  .sidebar-foot b{color:#CFE3D8;}
+
+  /* Main */
+  .main{flex:1; min-width:0; display:flex; flex-direction:column;}
+
+  .topbar{
+    background:var(--panel);
+    border-bottom:1px solid var(--line);
+    padding:14px 28px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:20px;
+    flex-wrap:wrap;
+  }
+  .topbar h2{margin:0; font-size:17px; font-weight:700;}
+  .topbar .desc{font-size:12.5px; color:var(--ink-soft); margin-top:2px;}
+
+  .fresh-wrap{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .freshness{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    background:var(--brand-tint);
+    border:1px solid #CFE4D9;
+    border-radius:20px;
+    padding:5px 12px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    white-space:nowrap;
+  }
+  .freshness.stale{background:var(--yellow-tint); border-color:#EBD9A9;}
+  .freshness.fallback{background:var(--red-tint); border-color:#E7C5C1;}
+  .freshness .pulse{width:7px;height:7px;border-radius:50%;background:var(--brand); box-shadow:0 0 0 3px var(--brand-tint);}
+  .freshness.stale .pulse{background:var(--yellow); box-shadow:0 0 0 3px var(--yellow-tint);}
+  .freshness.fallback .pulse{background:var(--red); box-shadow:0 0 0 3px var(--red-tint);}
+
+  .btn-refresh{
+    display:flex; align-items:center; gap:7px;
+    font-size:12.5px; font-weight:700;
+    color:#fff; background:var(--brand);
+    border:none; border-radius:20px;
+    padding:7px 14px;
+    cursor:pointer;
+  }
+  .btn-refresh:hover{background:var(--brand-dark);}
+  .btn-refresh:disabled{background:#A9B5AE; cursor:default;}
+  .btn-refresh .spinner{
+    width:11px; height:11px; border-radius:50%;
+    border:2px solid rgba(255,255,255,.4); border-top-color:#fff;
+    animation:spin .7s linear infinite; display:none;
+  }
+  .btn-refresh.loading .spinner{display:inline-block;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .banner{
+    margin:0 28px; margin-top:14px;
+    border-radius:8px; padding:10px 14px; font-size:12.5px;
+    display:none;
+    align-items:center; gap:8px;
+  }
+  .banner.show{display:flex;}
+  .banner.warn{background:var(--yellow-tint); border:1px solid #EBD9A9; color:#6E5017;}
+  .banner.error{background:var(--red-tint); border:1px solid #E7C5C1; color:#7A2E28;}
+
+  .filters{
+    background:var(--panel);
+    border-bottom:1px solid var(--line);
+    padding:12px 28px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  .filters label{font-size:11px; color:var(--ink-soft); display:block; margin-bottom:3px;}
+  .field select, .field input{
+    font-family:'Manrope',sans-serif;
+    font-size:13px;
+    padding:7px 10px;
+    border-radius:7px;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--ink);
+    min-width:130px;
+  }
+  .field{display:flex; flex-direction:column;}
+  .filters .reset{
+    align-self:flex-end;
+    font-size:12px;
+    color:var(--brand);
+    background:none;
+    border:1px solid var(--brand);
+    border-radius:7px;
+    padding:7px 12px;
+    cursor:pointer;
+    font-weight:600;
+  }
+  .filters .reset:hover{background:var(--brand-tint);}
+
+  .content{padding:22px 28px 60px; flex:1;}
+  .tabpage{display:none;}
+  .tabpage.active{display:block;}
+
+  /* KPI cards */
+  .kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px;}
+  .kpi{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:16px 18px;
+  }
+  .kpi .lbl{font-size:11.5px; color:var(--ink-soft); margin-bottom:8px;}
+  .kpi .val{font-size:26px; font-weight:700; font-family:'IBM Plex Mono',monospace;}
+  .kpi .delta{font-size:12px; margin-top:6px; font-weight:600;}
+  .delta.up{color:var(--green);}
+  .delta.down{color:var(--red);}
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px 20px;
+    margin-bottom:18px;
+  }
+  .panel h3{margin:0 0 3px; font-size:14.5px; font-weight:700;}
+  .panel .panel-note{font-size:12px; color:var(--ink-soft); margin-bottom:14px;}
+
+  .grid2{display:grid; grid-template-columns:1.4fr 1fr; gap:18px;}
+
+  svg text{font-family:'IBM Plex Mono',monospace;}
+
+  .legend{display:flex; gap:16px; font-size:12px; color:var(--ink-soft); margin-top:8px; flex-wrap:wrap;}
+  .legend span{display:inline-flex; align-items:center; gap:6px;}
+  .legend i{width:10px; height:10px; border-radius:2px; display:inline-block;}
+
+  table{width:100%; border-collapse:collapse; font-size:12.8px;}
+  thead th{
+    text-align:left;
+    font-size:11px;
+    color:var(--ink-soft);
+    font-weight:600;
+    padding:8px 10px;
+    border-bottom:1px solid var(--line);
+    position:sticky; top:0; background:var(--panel);
+    cursor:pointer;
+    user-select:none;
+    white-space:nowrap;
+  }
+  thead th:hover{color:var(--ink);}
+  tbody td{padding:7px 10px; border-bottom:1px solid #EEF0EE; font-family:'IBM Plex Mono',monospace;}
+  tbody td.city-cell{font-family:'Manrope',sans-serif; font-weight:600;}
+  tbody tr:hover{background:#FAFBFA;}
+  .pct-cell{position:relative;}
+  .pct-bar{
+    position:absolute; left:0; top:0; bottom:0;
+    background:var(--brand-tint);
+    z-index:0;
+  }
+  .pct-val{position:relative; z-index:1;}
+  .table-wrap{max-height:520px; overflow:auto; border:1px solid var(--line); border-radius:8px;}
+  .table-wrap table thead th{background:#F7F8F6;}
+
+  .badge{
+    display:inline-block;
+    font-size:10.5px;
+    font-weight:700;
+    padding:2px 7px;
+    border-radius:5px;
+    font-family:'Manrope',sans-serif;
+  }
+  .badge.f1{background:#E7EEFB; color:#2E4E8F;}
+  .badge.f2{background:#FBEDE2; color:#9C5A22;}
+  .badge.f3{background:#EAE4FB; color:#5A3E9C;}
+
+  /* Traffic light */
+  .tl-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:12px;}
+  .tl-card{
+    border-radius:10px;
+    padding:13px 14px;
+    border:1px solid var(--line);
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .tl-card.red{background:var(--red-tint); border-color:#E7C5C1;}
+  .tl-card.yellow{background:var(--yellow-tint); border-color:#EBD9A9;}
+  .tl-card.green{background:var(--green-tint); border-color:#C4E1CF;}
+  .tl-top{display:flex; justify-content:space-between; align-items:flex-start;}
+  .tl-city{font-weight:700; font-size:13.5px;}
+  .tl-dot{width:11px; height:11px; border-radius:50%; margin-top:3px;}
+  .tl-dot.red{background:var(--red);}
+  .tl-dot.yellow{background:var(--yellow);}
+  .tl-dot.green{background:var(--green);}
+  .tl-pct{font-family:'IBM Plex Mono',monospace; font-size:20px; font-weight:600;}
+  .tl-meta{font-size:11px; color:var(--ink-soft);}
+
+  .callout{
+    background:var(--gold-tint);
+    border:1px solid #E7D2A0;
+    border-radius:8px;
+    padding:11px 14px;
+    font-size:12.5px;
+    color:#6E5017;
+    margin-bottom:16px;
+  }
+  .callout b{color:#4C3710;}
+
+  /* Calculator */
+  .calc-grid{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+  .calc-inputs{display:flex; flex-direction:column; gap:14px;}
+  .calc-row{display:flex; justify-content:space-between; align-items:center; gap:14px;}
+  .calc-row label{font-size:12.5px; color:var(--ink-soft); max-width:220px;}
+  .calc-row input[type=range]{flex:1;}
+  .calc-row .rv{font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:13px; min-width:74px; text-align:right;}
+  .funnel{display:flex; flex-direction:column; gap:10px;}
+  .fstep{
+    border-radius:8px; padding:12px 14px; border:1px solid var(--line); background:#FAFBFA;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .fstep .flabel{font-size:12.5px; color:var(--ink-soft);}
+  .fstep .fval{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:16px;}
+  .fstep.loss{background:var(--red-tint); border-color:#E7C5C1;}
+  .fstep.loss .fval{color:var(--red);}
+  .arrow-down{text-align:center; color:var(--ink-soft); font-size:11px;}
+
+  .tabs-mini{display:flex; gap:6px; margin-bottom:14px;}
+  .tab-mini-btn{
+    padding:6px 12px; border-radius:20px; border:1px solid var(--line);
+    background:#fff; font-size:12px; font-weight:600; cursor:pointer; color:var(--ink-soft);
+  }
+  .tab-mini-btn.active{background:var(--brand); color:#fff; border-color:var(--brand);}
+
+  /* Reports */
+  .report-doc{
+    background:#fff; border:1px solid var(--line); border-radius:10px;
+    padding:28px 30px; max-width:900px;
+  }
+  .report-doc h1{font-size:20px; margin:0 0 2px;}
+  .report-doc .report-sub{font-size:12.5px; color:var(--ink-soft); margin-bottom:22px;}
+  .report-doc h2{font-size:15px; margin:22px 0 10px; padding-top:16px; border-top:1px solid var(--line);}
+  .report-doc h2:first-of-type{border-top:none; padding-top:0; margin-top:0;}
+  .report-kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px;}
+  .report-kpi{border:1px solid var(--line); border-radius:8px; padding:10px 12px;}
+  .report-kpi .lbl{font-size:10.5px; color:var(--ink-soft); margin-bottom:4px;}
+  .report-kpi .val{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:18px;}
+  .report-doc table{width:100%; border-collapse:collapse; font-size:12px; margin-bottom:6px;}
+  .report-doc th{text-align:left; font-size:10.5px; color:var(--ink-soft); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--line);}
+  .report-doc td{padding:6px 8px; border-bottom:1px solid #EEF0EE; font-family:'IBM Plex Mono',monospace;}
+  .report-doc td.lbl-cell{font-family:'Manrope',sans-serif;}
+  .report-note{font-size:12px; color:var(--ink-soft); background:#F7F8F6; border:1px dashed var(--grey-line); border-radius:8px; padding:10px 13px;}
+  @media print{
+    body *{visibility:hidden;}
+    #reportOutput, #reportOutput *{visibility:visible;}
+    #reportOutput{position:absolute; left:0; top:0; width:100%;}
+    .report-doc{border:none; padding:0;}
+  }
+
+  @media (max-width:980px){
+    .kpis{grid-template-columns:repeat(2,1fr);}
+    .grid2{grid-template-columns:1fr;}
+    .calc-grid{grid-template-columns:1fr;}
+    .sidebar{width:64px; flex-basis:64px; padding:16px 8px;}
+    .brand h1,.brand .kicker,.brand .sub,.navlink span.lbl{display:none;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="kicker">ЭТАЖИ · ИНСАЙТ</div>
+      <h1>ЭР и АКК</h1>
+      <div class="sub">Аналитика по допсервисам</div>
+    </div>
+    <nav id="nav">
+      <div class="navlink active" data-tab="overview"><span class="dot"></span><span class="lbl">Обзор</span></div>
+      <div class="navlink" data-tab="analytics"><span class="dot"></span><span class="lbl">Аналитика</span></div>
+      <div class="navlink" data-tab="traffic"><span class="dot"></span><span class="lbl">Светофор</span></div>
+      <div class="navlink" data-tab="calc"><span class="dot"></span><span class="lbl">Калькулятор</span></div>
+      <div class="navlink" data-tab="reports"><span class="dot"></span><span class="lbl">Отчёты</span></div>
+    </nav>
+    <div class="sidebar-foot">
+      <div><b>Источники:</b> Google Sheets «Карта онлайн (ЭР, Аккредитивы)» и «Калькулятор по аккредитивам Голендухина»</div>
+      <div style="margin-top:6px;">Автообновление — раз в 24 часа, либо кнопкой «Обновить сейчас»</div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h2 id="pageTitle">Обзор</h2>
+        <div class="desc" id="pageDesc">Проникновение электронной регистрации (ЭР) по сети, ФиФ и городам</div>
+      </div>
+      <div class="fresh-wrap">
+        <div class="freshness" id="freshBadge"><span class="pulse"></span> <span id="freshText">загрузка данных…</span></div>
+        <button class="btn-refresh" id="btnRefresh"><span class="spinner"></span><span id="btnRefreshLbl">Обновить сейчас</span></button>
+      </div>
+    </div>
+
+    <div class="banner warn" id="banner"><span id="bannerText"></span></div>
+
+    <div class="filters">
+      <div class="field">
+        <label>Период (месяц)</label>
+        <select id="fPeriod"></select>
+      </div>
+      <div class="field">
+        <label>Категория города (ФиФ)</label>
+        <select id="fCat">
+          <option value="">Все</option>
+          <option value="Ф1">Ф1</option>
+          <option value="Ф2">Ф2</option>
+          <option value="Ф3">Ф3</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Категория по валу</label>
+        <select id="fGrade">
+          <option value="">Все</option>
+          <option value="A++">A++</option>
+          <option value="A+">A+</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
+          <option value="E">E</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Город</label>
+        <select id="fCity"><option value="">Все города</option></select>
+      </div>
+      <button class="reset" id="resetFilters">Сбросить фильтры</button>
+    </div>
+
+    <div class="content">
+
+      <!-- OVERVIEW -->
+      <section class="tabpage active" id="tab-overview">
+        <div class="kpis" id="kpiRow"></div>
+
+        <div class="panel" id="domklikPanel">
+          <h3>Наша база vs Дом Клик — борьба за долю</h3>
+          <div class="panel-note">Оба показателя считаются от одного знаменателя (сделки с наличными в Этажах): числитель «Наша база» — использование ЭР Этажей, числитель «Дом Клик» — использование сервиса конкурента. Цель — расти по зелёной линии и снижать красную.</div>
+          <div class="kpis" id="domklikKpis" style="margin-bottom:14px;"></div>
+          <div id="domklikChart"></div>
+          <div class="legend">
+            <span><i style="background:#1F6F5C"></i>Наша база (ЭР Этажей)</span>
+            <span><i style="background:#B5453F"></i>Дом Клик (конкурент)</span>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="panel">
+            <h3>Динамика % ЭР — Вся сеть и ФиФ</h3>
+            <div class="panel-note">Наша база, снимки на конец месяца</div>
+            <div id="trendChart"></div>
+            <div class="legend" id="trendLegend"></div>
+          </div>
+          <div class="panel">
+            <h3>Проникновение по ФиФ, <span id="fifMonthLabel"></span></h3>
+            <div class="panel-note">Выбранный месяц, доля от отгруженных сделок</div>
+            <div id="fifBars"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Лидеры и аутсайдеры по проникновению</h3>
+          <div class="panel-note">Города с ненулевым знаменателем сделок за период</div>
+          <div class="grid2" id="leadersLaggards"></div>
+        </div>
+      </section>
+
+      <!-- ANALYTICS -->
+      <section class="tabpage" id="tab-analytics">
+        <div class="panel">
+          <h3>Город vs лучшая / худшая практика</h3>
+          <div class="panel-note">Серый — лучший и худший город сети за период, красный — выбранный вами город (задайте фильтр «Город»)</div>
+          <div id="compareChart"></div>
+          <div class="legend">
+            <span><i style="background:#C7CCC8"></i>Лучший город</span>
+            <span><i style="background:#9BA29D"></i>Худший город</span>
+            <span><i style="background:var(--red)"></i>Выбранный город</span>
+            <span><i style="background:var(--brand)"></i>Вся сеть</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Тепловая карта проникновения по городам</h3>
+          <div class="panel-note">Кликните заголовок столбца для сортировки. Ширина заливки ячейки соответствует % внедрения ЭР.</div>
+          <div class="table-wrap">
+            <table id="heatTable">
+              <thead>
+                <tr id="heatHeadRow"></tr>
+              </thead>
+              <tbody id="heatBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TRAFFIC LIGHT -->
+      <section class="tabpage" id="tab-traffic">
+        <div class="callout">
+          <b>Черновой прототип.</b> Пороги ниже — рабочая заглушка (&lt;30% красный · 30–60% жёлтый · &gt;60% зелёный от % ЭР за выбранный месяц).
+          Финальную логику нужно перенести из ТЗ «Светофор риелторов» (<span class="num">ecosystem.etagi.com/trafficLight</span>).
+        </div>
+        <div class="tabs-mini">
+          <button class="tab-mini-btn active" data-tl="all">Все</button>
+          <button class="tab-mini-btn" data-tl="red">Только красные</button>
+          <button class="tab-mini-btn" data-tl="yellow">Только жёлтые</button>
+          <button class="tab-mini-btn" data-tl="green">Только зелёные</button>
+        </div>
+        <div class="tl-grid" id="tlGrid"></div>
+      </section>
+
+      <!-- CALCULATOR -->
+      <section class="tabpage" id="tab-calc">
+        <div class="callout">
+          <b>Данные подтягиваются напрямую с листа «Калькулятор».</b> Столбцы КВ по банкам и «Наибольшее значение» — фактические
+          значения из таблицы. Пересчитывается по вашему вводу только «Возможно АКК при target%» и производные от него —
+          масштабируются пропорционально от значения листа при исходном target%, так как точная формула переоценки по сроку
+          аккредитива не выгружается через API таблиц.
+        </div>
+        <div class="calc-grid" style="grid-template-columns:1fr 1fr 1fr;">
+          <div class="field"><label>Город</label>
+            <select id="cCity"></select>
+          </div>
+          <div class="field"><label>Период</label>
+            <select id="cPeriod"></select>
+          </div>
+          <div class="field"><label>Срок аккредитива, дней</label>
+            <input type="number" id="cTerm" value="5" min="1" max="90" style="width:100%">
+          </div>
+        </div>
+
+        <div class="kpis" style="grid-template-columns:repeat(4,1fr); margin-top:14px;">
+          <div class="kpi">
+            <div class="lbl">Фактический % внедрения</div>
+            <div class="val num" id="calcActualPct">—</div>
+            <div class="delta" id="calcActualNote" style="color:var(--ink-soft)"></div>
+          </div>
+          <div class="kpi">
+            <div class="lbl">Предполагаемый % внедрения</div>
+            <input type="range" id="cTarget" min="5" max="100" value="27" step="1" style="width:100%; margin-top:4px;">
+            <div class="delta num" id="cTargetV" style="color:var(--brand); font-size:16px;">27%</div>
+          </div>
+          <div class="kpi">
+            <div class="lbl">Факт. КВ по банкам, всего</div>
+            <div class="val num" id="calcActualComm">—</div>
+            <div class="delta" style="color:var(--ink-soft)">за период</div>
+          </div>
+          <div class="kpi">
+            <div class="lbl">Упущенная выгода по АКК</div>
+            <div class="val num" id="calcMissedTotal" style="color:var(--red)">—</div>
+            <div class="delta down" id="calcMissedNote">при лучшем банке по каждому чеку</div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:16px;">
+          <h3>Ставки по банкам, использованные в потенциальной КВ</h3>
+          <div class="panel-note">Из фактических сумм потенциальной КВ по чекам — банк с наибольшей суммой на каждый диапазон выбирается автоматически</div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <span class="badge f1">Т-Банк</span>
+            <span class="badge f2">ДомРФ</span>
+            <span class="badge f3">Сбер</span>
+            <span class="badge f1">ВТБ</span>
+            <span class="badge f2">Совкомбанк</span>
+            <span class="badge f3">Альфа</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Разбивка по чекам сделок</h3>
+          <div class="panel-note">«Наибольшее значение» уже выбирает оптимальный банк для каждого диапазона чека</div>
+          <div class="table-wrap" style="max-height:460px;">
+            <table id="calcTable">
+              <thead>
+                <tr>
+                  <th>Чек сделки</th>
+                  <th>Сделки нал., шт</th>
+                  <th>Сумма сделок нал., ₽</th>
+                  <th>АКК факт, шт</th>
+                  <th>% АКК факт</th>
+                  <th>КВ факт, ₽</th>
+                  <th>Возможно АКК при target%</th>
+                  <th>Т-Банк, ₽</th>
+                  <th>ДомРФ, ₽</th>
+                  <th>Сбер, ₽</th>
+                  <th>ВТБ, ₽</th>
+                  <th>Совкомбанк, ₽</th>
+                  <th>Альфа, ₽</th>
+                  <th>Лучший банк, ₽</th>
+                  <th>Упущенная выгода, ₽</th>
+                </tr>
+              </thead>
+              <tbody id="calcBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Воронка «правильного выбора» — итого</h3>
+          <div class="panel-note">Сделка с наличкой → факт. проведённый АКК → лучший возможный АКК (по оптимальному банку на чек) → упущенная выгода</div>
+          <div class="funnel" id="funnel"></div>
+        </div>
+      </section>
+
+      <!-- REPORTS -->
+      <section class="tabpage" id="tab-reports">
+        <div class="panel">
+          <h3>Отчёт по городу за месяц</h3>
+          <div class="panel-note">Проникновение ЭР в динамике, разбивка по аккредитивам (все банки) и упущенная выгода</div>
+          <div class="filters" style="padding:0; border:none; margin-bottom:14px;">
+            <div class="field">
+              <label>Город</label>
+              <select id="rCity"></select>
+            </div>
+            <div class="field">
+              <label>Месяц</label>
+              <select id="rMonth"></select>
+            </div>
+            <button class="btn-refresh" id="btnGenerateReport" style="align-self:flex-end;">Сформировать отчёт</button>
+          </div>
+          <div id="reportActions" style="display:none; gap:10px; margin-bottom:16px;">
+            <button class="reset" id="btnPrintReport">Печать / Сохранить как PDF</button>
+            <button class="reset" id="btnDownloadReport">Скачать как HTML</button>
+          </div>
+          <div id="reportOutput"></div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   ДАННЫЕ ДАШБОРДА — приходят с собственного бэкенда (/api/data, /api/refresh).
+   Бэкенд сам ходит в Google Sheets, парсит и кэширует (см. lib/sheets.js).
+   Ниже — резервный клиентский снимок на случай, если бэкенд недоступен.
+   ========================================================================= */
+
+/* ---------- РЕЗЕРВНЫЙ СНИМОК (используется, пока живые данные не загрузились,
+   и как аварийный fallback, если оба листа недоступны) ---------- */
+const DEFAULT_DATA = {
+  generatedAt: null,
+  source: 'fallback',
+  months: ['дек.24','дек.25','февр.26','апр.26','июн.26','июл.26'],
+  aggs: [
+    {city:'Вся сеть', cat:'', grade:'', agg:true, values:[54.14,44.17,45.37,52.05,46.69,43.01]},
+    {city:'Ф1', cat:'Ф1', grade:'', agg:true, values:[67.99,60.93,65.51,75.37,69.33,64.20]},
+    {city:'Ф2', cat:'Ф2', grade:'', agg:true, values:[50.76,35.20,36.41,42.85,38.28,33.80]},
+    {city:'Ф3', cat:'Ф3', grade:'', agg:true, values:[40.66,57.69,50.39,55.45,42.03,37.04]},
+  ],
+  cities: [
+    {city:'Москва', cat:'Ф3', grade:'A++', values:[27.16,25.43,33.27,43.07,27.15,25.10]},
+    {city:'Санкт-Петербург', cat:'Ф1', grade:'A++', values:[30.22,31.14,31.39,45.96,41.38,37.64]},
+    {city:'Сургут', cat:'Ф1', grade:'A++', values:[50.44,54.37,64.15,82.77,54.37,56.60]},
+    {city:'Тюмень', cat:'Ф1', grade:'A++', values:[66.09,61.76,60.49,71.42,67.73,59.96]},
+    {city:'Владивосток', cat:'Ф2', grade:'A++', values:[67.39,95.08,106.87,120.21,89.55,100.33]},
+    {city:'Воронеж', cat:'Ф2', grade:'A++', values:[18.82,5.43,14.48,10.61,7.27,3.10]},
+    {city:'Екатеринбург', cat:'Ф2', grade:'A++', values:[50.88,52.32,68.24,76.45,66.67,61.73]},
+    {city:'Казань', cat:'Ф2', grade:'A++', values:[87.50,76.92,70.51,126.86,129.15,91.31]},
+    {city:'Калининград', cat:'Ф2', grade:'A++', values:[54.65,70.05,77.85,90.06,85.47,94.79]},
+    {city:'Красноярск', cat:'Ф2', grade:'A++', values:[21.50,37.89,40.72,24.46,38.63,14.51]},
+    {city:'Тула', cat:'Ф2', grade:'A++', values:[55.45,52.41,67.69,86.65,31.16,25.08]},
+    {city:'Хабаровск', cat:'Ф2', grade:'A++', values:[30.85,98.58,86.79,101.54,75.25,64.10]},
+    {city:'Ростов-на-Дону', cat:'Ф1', grade:'A+', values:[50.94,38.46,16.46,37.04,27.43,17.78]},
+    {city:'Благовещенск', cat:'Ф2', grade:'A+', values:[24.36,18.10,4.88,4.86,12.38,15.56]},
+    {city:'Калуга', cat:'Ф2', grade:'A+', values:[10.39,0.00,0.00,3.62,2.08,0.00]},
+    {city:'Кемерово', cat:'Ф2', grade:'A+', values:[37.93,48.35,23.14,28.07,36.97,28.67]},
+    {city:'Краснодар', cat:'Ф2', grade:'A+', values:[0.00,22.30,11.54,17.09,19.23,2.80]},
+    {city:'Омск', cat:'Ф1', grade:'A+', values:[46.28,47.16,60.51,48.22,51.59,52.76]},
+    {city:'Симферополь', cat:'Ф2', grade:'A+', values:[47.27,40.82,101.31,124.26,110.30,47.62]},
+    {city:'Тверь', cat:'Ф2', grade:'A+', values:[20.22,26.00,24.73,21.30,14.36,9.32]},
+    {city:'Томск', cat:'Ф2', grade:'A+', values:[79.82,92.01,77.95,131.62,128.21,108.36]},
+    {city:'Улан-Удэ', cat:'Ф2', grade:'A+', values:[33.98,64.99,53.05,63.61,46.30,55.13]},
+    {city:'Уфа', cat:'Ф2', grade:'A+', values:[3.81,3.71,0.00,0.00,0.00,0.00]},
+  ],
+  calc: {
+    targetPct: 27,
+    period: 'янв.26 – авг.26',
+    city: 'Тамбов',
+    buckets: [
+      {label:'нет данных', cash:1, sum:0, accred:37, actualComm:0, possible27:1, banks:{tbank:0,domrf:0,sber:0,vtb:0,sovkom:0,alfa:0}},
+      {label:'до 0,5 млн', cash:10, sum:3258000, accred:3, actualComm:4500, possible27:3, banks:{tbank:1096,domrf:0,sber:7380,vtb:6150,sovkom:0,alfa:870}},
+      {label:'0,5–1 млн', cash:26, sum:18369000, accred:2, actualComm:3000, possible27:7, banks:{tbank:5547,domrf:0,sber:17220,vtb:14350,sovkom:0,alfa:4400}},
+      {label:'1–2 млн', cash:35, sum:50085000, accred:14, actualComm:23880, possible27:10, banks:{tbank:16052,domrf:12300,sber:24600,vtb:20500,sovkom:0,alfa:12731}},
+      {label:'2–3 млн', cash:60, sum:151620800, accred:24, actualComm:45551, possible27:17, banks:{tbank:48188,domrf:55760,sber:41820,vtb:34850,sovkom:0,alfa:38218}},
+      {label:'3–4 млн', cash:106, sum:363884000, accred:24, actualComm:46560, possible27:29, banks:{tbank:111670,domrf:154570,sber:71340,vtb:71340,sovkom:0,alfa:88567}},
+      {label:'4–5 млн', cash:103, sum:459169000, accred:22, actualComm:39720, possible27:28, banks:{tbank:140015,domrf:160720,sber:68880,vtb:68880,sovkom:0,alfa:111048}},
+      {label:'5–6 млн', cash:50, sum:272370000, accred:8, actualComm:16452, possible27:14, banks:{tbank:85546,domrf:91840,sber:34440,vtb:45920,sovkom:0,alfa:67847}},
+      {label:'6–7 млн', cash:42, sum:269830000, accred:5, actualComm:8460, possible27:12, banks:{tbank:86478,domrf:88560,sber:29520,vtb:39360,sovkom:0,alfa:68586}},
+      {label:'7–8 млн', cash:16, sum:116150000, accred:3, actualComm:7500, possible27:5, banks:{tbank:40715,domrf:41000,sber:20500,vtb:24600,sovkom:0,alfa:32291}},
+      {label:'8–9 млн', cash:6, sum:50350000, accred:5, actualComm:15700, possible27:2, banks:{tbank:18826,domrf:18040,sber:8200,vtb:9840,sovkom:0,alfa:14931}},
+      {label:'9–10 млн', cash:5, sum:46900000, accred:0, actualComm:0, possible27:2, banks:{tbank:21043,domrf:19680,sber:8200,vtb:11480,sovkom:0,alfa:16690}},
+      {label:'10 млн и более', cash:17, sum:233250000, accred:6, actualComm:18200, possible27:5, banks:{tbank:76953,domrf:51250,sber:20500,vtb:28700,sovkom:0,alfa:61032}},
+    ],
+  },
+};
+
+/* ---------- ТЕКУЩИЕ ДАННЫЕ (переключаются при загрузке) ---------- */
+let MONTHS = DEFAULT_DATA.months;
+let DOMKLIK_MONTHS = DEFAULT_DATA.domklikMonths || [];
+let RAW = [...DEFAULT_DATA.aggs, ...DEFAULT_DATA.cities];
+let CITIES = DEFAULT_DATA.cities;
+let AGGS = DEFAULT_DATA.aggs;
+let CALC = DEFAULT_DATA.calc;
+
+/* ---------- STATE ---------- */
+const state = { period: MONTHS.length-1, cat:'', grade:'', city:'' };
+
+/* =========================================================================
+   ДАННЫЕ — через собственный бэкенд (server.js -> lib/sheets.js), который
+   сам ходит в Google Sheets, кэширует и обновляется раз в сутки.
+   Фронтенд просто читает /api/data и умеет форсировать /api/refresh.
+   ========================================================================= */
+
+async function loadFromApi(){
+  const res = await fetch('/api/data', { cache: 'no-store' });
+  if (!res.ok) throw new Error('API /api/data вернул ' + res.status);
+  return res.json();
+}
+async function forceRefresh(){
+  const res = await fetch('/api/refresh', { method: 'POST' });
+  if (!res.ok) throw new Error('API /api/refresh вернул ' + res.status);
+  return res.json();
+}
+
+function applyData(data, opts={}){
+  MONTHS = data.months;
+  DOMKLIK_MONTHS = data.domklikMonths || [];
+  AGGS = data.aggs;
+  CITIES = data.cities;
+  CALC = data.calc;
+  if (!opts.keepPeriod) state.period = MONTHS.length-1;
+  populatePeriodSelect();
+  populateCityFilter();
+  populateCalcSelectors();
+  populateReportSelectors();
+  renderAll();
+  updateFreshBadge(data);
+}
+
+function updateFreshBadge(data){
+  const badge = document.getElementById('freshBadge');
+  const text = document.getElementById('freshText');
+  badge.classList.remove('stale','fallback');
+  if (data.source === 'fallback'){
+    badge.classList.add('fallback');
+    text.textContent = 'Показан резервный снимок — бэкенд не смог получить данные из Google Sheets';
+    return;
+  }
+  const ageMs = Date.now() - (data.generatedAt || 0);
+  const ageH = ageMs / 3600000;
+  const dt = data.generatedAt ? new Date(data.generatedAt) : null;
+  const dtStr = dt ? dt.toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+  if (ageH > 24) badge.classList.add('stale');
+  text.textContent = `Обновлено: ${dtStr} (бэкенд)`;
+}
+
+function showBanner(kind, msg){
+  const b = document.getElementById('banner');
+  const t = document.getElementById('bannerText');
+  b.className = 'banner show ' + kind;
+  t.textContent = msg;
+}
+function hideBanner(){
+  document.getElementById('banner').classList.remove('show');
+}
+
+async function refreshFromSheets(manual){
+  const btn = document.getElementById('btnRefresh');
+  const lbl = document.getElementById('btnRefreshLbl');
+  btn.disabled = true; btn.classList.add('loading');
+  lbl.textContent = 'Обновляем…';
+  try{
+    const data = await forceRefresh();
+    applyData(data, {keepPeriod:false});
+    hideBanner();
+  }catch(err){
+    if (manual){
+      showBanner('error', 'Бэкенд не смог обновить данные (проверьте доступ к таблицам или сеть). Показаны предыдущие данные.');
+    }
+    console.warn('Обновление не удалось:', err);
+  }finally{
+    btn.disabled = false; btn.classList.remove('loading');
+    lbl.textContent = 'Обновить сейчас';
+  }
+}
+
+async function init(){
+  try{
+    const data = await loadFromApi();
+    applyData(data);
+    if (data.source === 'fallback'){
+      showBanner('warn', 'Бэкенд пока не смог загрузить свежие данные и показывает резервный снимок. Попробуйте «Обновить сейчас».');
+    }
+  }catch(err){
+    console.warn('Не удалось получить данные с бэкенда:', err);
+    applyData(DEFAULT_DATA);
+    showBanner('error', 'Не удалось связаться с бэкендом (/api/data). Показан встроенный резервный снимок.');
+  }
+}
+
+document.getElementById('btnRefresh').addEventListener('click', () => refreshFromSheets(true));
+
+/* =========================================================================
+   ФИЛЬТРЫ
+   ========================================================================= */
+function populatePeriodSelect(){
+  const el = document.getElementById('fPeriod');
+  el.innerHTML = '';
+  MONTHS.forEach((m,i) => {
+    const o = document.createElement('option'); o.value=i; o.textContent=m;
+    if (i===state.period) o.selected = true;
+    el.appendChild(o);
+  });
+}
+function populateCityFilter(){
+  const el = document.getElementById('fCity');
+  const prev = state.city;
+  el.innerHTML = '<option value="">Все города</option>';
+  CITIES.map(c=>c.city).sort((a,b)=>a.localeCompare(b,'ru')).forEach(c=>{
+    const o = document.createElement('option'); o.value=c; o.textContent=c;
+    if (c===prev) o.selected = true;
+    el.appendChild(o);
+  });
+  if (!CITIES.some(c=>c.city===prev)) state.city='';
+}
+function populateCalcSelectors(){
+  document.getElementById('cCity').innerHTML = `<option>${CALC.city}</option>`;
+  document.getElementById('cPeriod').innerHTML = `<option>${CALC.period}</option>`;
+  document.getElementById('cTarget').value = CALC.targetPct;
+  document.getElementById('cTargetV').textContent = CALC.targetPct + '%';
+}
+
+function applyFilters(list){
+  return list.filter(r=>{
+    if(state.cat && r.cat!==state.cat) return false;
+    if(state.grade && r.grade!==state.grade) return false;
+    if(state.city && r.city!==state.city) return false;
+    return true;
+  });
+}
+
+/* ---------- SVG HELPERS ---------- */
+function svgLine(w,h,series,opts={}){
+  const pad = {l:36,r:14,t:14,b:24};
+  const allVals = series.flatMap(s=>s.values);
+  const minV = Math.min(0, ...allVals), maxV = Math.max(...allVals)*1.08 || 1;
+  const n = Math.max(2, MONTHS.length);
+  const x = i => pad.l + (i/(n-1))*(w-pad.l-pad.r);
+  const y = v => (h-pad.b) - ((v-minV)/(maxV-minV))*(h-pad.t-pad.b);
+  let out = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`;
+  const steps=4;
+  for(let g=0; g<=steps; g++){
+    const val = minV + (maxV-minV)*g/steps;
+    const yy = y(val);
+    out += `<line x1="${pad.l}" y1="${yy}" x2="${w-pad.r}" y2="${yy}" stroke="#E4E7E4" stroke-width="1"/>`;
+    out += `<text x="4" y="${yy+4}" font-size="9.5" fill="#8A928C">${val.toFixed(0)}%</text>`;
+  }
+  MONTHS.forEach((m,i)=>{
+    out += `<text x="${x(i)}" y="${h-6}" font-size="9" fill="#8A928C" text-anchor="middle">${m}</text>`;
+  });
+  series.forEach(s=>{
+    const pts = s.values.map((v,i)=>`${x(i)},${y(v)}`).join(' ');
+    out += `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="${s.width||2.4}" ${s.dash?`stroke-dasharray="${s.dash}"`:''}/>`;
+    if(!opts.noDots){
+      s.values.forEach((v,i)=>{ out += `<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="${s.color}"/>`; });
+    }
+  });
+  out += `</svg>`;
+  return out;
+}
+function svgBars(w,h,items){
+  const pad={l:36,r:14,t:14,b:30};
+  const maxV = Math.max(...items.map(i=>i.value))*1.15 || 1;
+  const bw = (w-pad.l-pad.r)/items.length;
+  const y = v => (h-pad.b) - (v/maxV)*(h-pad.t-pad.b);
+  let out=`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`;
+  const steps=4;
+  for(let g=0; g<=steps; g++){
+    const val = maxV*g/steps;
+    const yy=y(val);
+    out += `<line x1="${pad.l}" y1="${yy}" x2="${w-pad.r}" y2="${yy}" stroke="#E4E7E4" stroke-width="1"/>`;
+    out += `<text x="4" y="${yy+4}" font-size="9.5" fill="#8A928C">${val.toFixed(0)}%</text>`;
+  }
+  items.forEach((it,i)=>{
+    const bx = pad.l + i*bw + bw*0.18;
+    const bwid = bw*0.64;
+    const yy = y(it.value);
+    out += `<rect x="${bx}" y="${yy}" width="${bwid}" height="${(h-pad.b)-yy}" fill="${it.color}" rx="3"/>`;
+    out += `<text x="${bx+bwid/2}" y="${yy-6}" font-size="10.5" fill="#1B2420" text-anchor="middle" font-weight="600">${it.value.toFixed(1)}%</text>`;
+    out += `<text x="${bx+bwid/2}" y="${h-10}" font-size="10" fill="#5B655F" text-anchor="middle">${it.label}</text>`;
+  });
+  out += `</svg>`;
+  return out;
+}
+
+/* ---------- RENDER: KPIs ---------- */
+function renderKPIs(){
+  const network = AGGS.find(a=>a.city==='Вся сеть');
+  const p = Math.min(state.period, MONTHS.length-1);
+  const cur = network.values[p];
+  const prev = p>0 ? network.values[p-1] : network.values[p];
+  const delta = cur-prev;
+  const filteredCities = applyFilters(CITIES);
+  const best = [...filteredCities].sort((a,b)=>b.values[p]-a.values[p])[0];
+  const worst = [...filteredCities].sort((a,b)=>a.values[p]-b.values[p])[0];
+  const avgCities = filteredCities.length ? filteredCities.reduce((s,c)=>s+c.values[p],0)/filteredCities.length : 0;
+
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi">
+      <div class="lbl">% ЭР по сети — ${MONTHS[p]}</div>
+      <div class="val num">${cur.toFixed(1)}%</div>
+      <div class="delta ${delta>=0?'up':'down'}">${delta>=0?'▲':'▼'} ${Math.abs(delta).toFixed(1)} п.п. к пред. месяцу</div>
+    </div>
+    <div class="kpi">
+      <div class="lbl">Средний % по выбранным городам</div>
+      <div class="val num">${avgCities.toFixed(1)}%</div>
+      <div class="delta" style="color:var(--ink-soft)">городов в выборке: ${filteredCities.length}</div>
+    </div>
+    <div class="kpi">
+      <div class="lbl">Лучший город</div>
+      <div class="val num">${best ? best.values[p].toFixed(1) : '—'}%</div>
+      <div class="delta up">${best ? best.city : '—'}</div>
+    </div>
+    <div class="kpi">
+      <div class="lbl">Худший город</div>
+      <div class="val num">${worst ? worst.values[p].toFixed(1) : '—'}%</div>
+      <div class="delta down">${worst ? worst.city : '—'}</div>
+    </div>
+  `;
+}
+
+function renderTrend(){
+  const series = [
+    {label:'Вся сеть', color:'#1F6F5C', width:3, values: AGGS.find(a=>a.city==='Вся сеть').values},
+    {label:'Ф1', color:'#2E4E8F', values: AGGS.find(a=>a.city==='Ф1').values},
+    {label:'Ф2', color:'#B9862E', values: AGGS.find(a=>a.city==='Ф2').values},
+    {label:'Ф3', color:'#8B4FB0', values: AGGS.find(a=>a.city==='Ф3').values},
+  ];
+  document.getElementById('trendChart').innerHTML = svgLine(560,240,series);
+  document.getElementById('trendLegend').innerHTML = series.map(s=>
+    `<span><i style="background:${s.color}"></i>${s.label}</span>`).join('');
+}
+
+function renderDomklikChart(){
+  const panel = document.getElementById('domklikPanel');
+  const network = AGGS.find(a=>a.city==='Вся сеть');
+  const domklik = network.domklik || [];
+  if (!DOMKLIK_MONTHS.length || !domklik.length){
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = '';
+
+  const lastIdx = domklik.length - 1;
+  const nashaAtDomklikMonths = DOMKLIK_MONTHS.map(m => {
+    const i = MONTHS.indexOf(m);
+    return i>=0 ? network.values[i] : null;
+  });
+  const curNasha = nashaAtDomklikMonths[lastIdx];
+  const curDomklik = domklik[lastIdx];
+  const prevDomklik = lastIdx>0 ? domklik[lastIdx-1] : curDomklik;
+  const deltaDomklik = curDomklik - prevDomklik;
+  const gap = (curNasha!=null ? curNasha : 0) - curDomklik;
+
+  document.getElementById('domklikKpis').innerHTML = `
+    <div class="kpi">
+      <div class="lbl">Наша база — ${DOMKLIK_MONTHS[lastIdx]}</div>
+      <div class="val num" style="color:var(--brand)">${curNasha!=null ? curNasha.toFixed(1) : '—'}%</div>
+      <div class="delta" style="color:var(--ink-soft)">цель — рост</div>
+    </div>
+    <div class="kpi">
+      <div class="lbl">Дом Клик — ${DOMKLIK_MONTHS[lastIdx]}</div>
+      <div class="val num" style="color:var(--red)">${curDomklik.toFixed(1)}%</div>
+      <div class="delta ${deltaDomklik<=0?'up':'down'}">${deltaDomklik<=0?'▼':'▲'} ${Math.abs(deltaDomklik).toFixed(1)} п.п. к пред. месяцу ${deltaDomklik<=0?'(хорошо)':'(растёт — плохо)'}</div>
+    </div>
+    <div class="kpi">
+      <div class="lbl">Отрыв (Наша база − Дом Клик)</div>
+      <div class="val num" style="color:${gap>=0?'var(--green)':'var(--red)'}">${gap>=0?'+':''}${gap.toFixed(1)} п.п.</div>
+      <div class="delta" style="color:var(--ink-soft)">чем больше, тем лучше</div>
+    </div>
+    <div class="kpi">
+      <div class="lbl">Динамика за ${domklik.length} мес.</div>
+      <div class="val num" style="color:${(curDomklik-domklik[0])<=0?'var(--green)':'var(--red)'}">${(curDomklik-domklik[0])<=0?'':'+'}${(curDomklik-domklik[0]).toFixed(1)} п.п.</div>
+      <div class="delta" style="color:var(--ink-soft)">изменение доли Дом Клик с ${DOMKLIK_MONTHS[0]}</div>
+    </div>
+  `;
+
+  const series = [
+    {label:'Наша база', color:'#1F6F5C', width:3, values: nashaAtDomklikMonths.map(v=>v==null?0:v)},
+    {label:'Дом Клик', color:'#B5453F', width:3, values: domklik},
+  ];
+  const savedMonths = MONTHS;
+  MONTHS = DOMKLIK_MONTHS; // svgLine рисует подписи по глобальному MONTHS — временно подменяем
+  document.getElementById('domklikChart').innerHTML = svgLine(760, 220, series);
+  MONTHS = savedMonths;
+}
+function renderFifBars(){
+  const p = Math.min(state.period, MONTHS.length-1);
+  document.getElementById('fifMonthLabel').textContent = MONTHS[p];
+  const items = [
+    {label:'Ф1', value: AGGS.find(a=>a.city==='Ф1').values[p], color:'#2E4E8F'},
+    {label:'Ф2', value: AGGS.find(a=>a.city==='Ф2').values[p], color:'#B9862E'},
+    {label:'Ф3', value: AGGS.find(a=>a.city==='Ф3').values[p], color:'#8B4FB0'},
+  ];
+  document.getElementById('fifBars').innerHTML = svgBars(320,240,items);
+}
+function renderLeadersLaggards(){
+  const p = Math.min(state.period, MONTHS.length-1);
+  const list = applyFilters(CITIES);
+  const top = [...list].sort((a,b)=>b.values[p]-a.values[p]).slice(0,6);
+  const bottom = [...list].sort((a,b)=>a.values[p]-b.values[p]).slice(0,6);
+  const catClass = c => c==='Ф1'?'f1':c==='Ф2'?'f2':'f3';
+  const row = (c)=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #EEF0EE;">
+      <span>${c.city} ${c.cat?`<span class="badge ${catClass(c.cat)}">${c.cat}</span>`:''}</span>
+      <span class="num" style="font-weight:600;">${c.values[p].toFixed(1)}%</span></div>`;
+  document.getElementById('leadersLaggards').innerHTML = `
+    <div><div style="font-size:12px;font-weight:700;color:var(--brand);margin-bottom:6px;">Топ по проникновению</div>${top.map(row).join('') || '—'}</div>
+    <div><div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:6px;">Наименьшее проникновение</div>${bottom.map(row).join('') || '—'}</div>
+  `;
+}
+
+function renderCompare(){
+  const list = applyFilters(CITIES);
+  const bestSeries = MONTHS.map((_,i)=> list.length ? Math.max(...list.map(c=>c.values[i])) : 0);
+  const worstSeries = MONTHS.map((_,i)=> list.length ? Math.min(...list.map(c=>c.values[i])) : 0);
+  const network = AGGS.find(a=>a.city==='Вся сеть').values;
+  const series = [
+    {label:'Лучший', color:'#C7CCC8', width:2, values:bestSeries, dash:'4,3'},
+    {label:'Худший', color:'#9BA29D', width:2, values:worstSeries, dash:'4,3'},
+    {label:'Сеть', color:'#1F6F5C', width:2.4, values:network},
+  ];
+  if(state.city){
+    const c = CITIES.find(c=>c.city===state.city);
+    if(c) series.push({label:c.city, color:'#B5453F', width:3, values:c.values});
+  }
+  document.getElementById('compareChart').innerHTML = svgLine(760,260,series);
+}
+
+let sortKey='last', sortDir=-1;
+function renderHeatTable(){
+  const head = document.getElementById('heatHeadRow');
+  head.innerHTML = `
+    <th data-key="city">Город</th>
+    <th data-key="cat">ФиФ</th>
+    <th data-key="grade">Грейд</th>
+    ${MONTHS.map((m,i)=>`<th data-key="${i}">${m}</th>`).join('')}
+    <th data-key="delta">Δ период</th>
+  `;
+  head.querySelectorAll('th').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const key = th.dataset.key;
+      if(sortKey===key) sortDir*=-1; else { sortKey=key; sortDir=-1; }
+      renderHeatTable();
+    });
+  });
+
+  const list = applyFilters(CITIES);
+  const maxAbs = 130;
+  const lastIdx = MONTHS.length-1;
+  list.sort((a,b)=>{
+    let av, bv;
+    if(sortKey==='city'||sortKey==='last') { }
+    if(sortKey==='city') { av=a.city; bv=b.city; return sortDir*av.localeCompare(bv,'ru'); }
+    if(sortKey==='cat') { av=a.cat; bv=b.cat; return sortDir*av.localeCompare(bv,'ru'); }
+    if(sortKey==='grade') { av=a.grade; bv=b.grade; return sortDir*av.localeCompare(bv,'ru'); }
+    if(sortKey==='delta') { av=a.values[lastIdx]-a.values[0]; bv=b.values[lastIdx]-b.values[0]; return sortDir*(av-bv); }
+    if(sortKey==='last') { av=a.values[lastIdx]; bv=b.values[lastIdx]; return sortDir*(av-bv); }
+    av=a.values[+sortKey]; bv=b.values[+sortKey];
+    return sortDir*(av-bv);
+  });
+  document.getElementById('heatBody').innerHTML = list.map(c=>{
+    const delta = c.values[lastIdx]-c.values[0];
+    const cells = c.values.map(v=>{
+      const w = Math.min(100,(v/maxAbs)*100);
+      return `<td class="pct-cell"><span class="pct-bar" style="width:${w}%"></span><span class="pct-val">${v.toFixed(1)}%</span></td>`;
+    }).join('');
+    const catClass = c.cat==='Ф1'?'f1':c.cat==='Ф2'?'f2':'f3';
+    return `<tr>
+      <td class="city-cell">${c.city}</td>
+      <td>${c.cat?`<span class="badge ${catClass}">${c.cat}</span>`:''}</td>
+      <td>${c.grade}</td>
+      ${cells}
+      <td style="font-weight:700;color:${delta>=0?'var(--green)':'var(--red)'}">${delta>=0?'+':''}${delta.toFixed(1)} п.п.</td>
+    </tr>`;
+  }).join('');
+}
+
+let tlFilter='all';
+function tlColor(v){ if(v<30) return 'red'; if(v<60) return 'yellow'; return 'green'; }
+function renderTraffic(){
+  const p = Math.min(state.period, MONTHS.length-1);
+  const list = applyFilters(CITIES);
+  const filtered = list.filter(c=>tlFilter==='all' || tlColor(c.values[p])===tlFilter);
+  document.getElementById('tlGrid').innerHTML = filtered.map(c=>{
+    const col = tlColor(c.values[p]);
+    return `<div class="tl-card ${col}">
+      <div class="tl-top">
+        <div class="tl-city">${c.city}</div>
+        <div class="tl-dot ${col}"></div>
+      </div>
+      <div class="tl-pct num">${c.values[p].toFixed(1)}%</div>
+      <div class="tl-meta">${c.cat} · грейд ${c.grade} · ${MONTHS[p]}</div>
+    </div>`;
+  }).join('') || '<div class="placeholder-note">Нет городов, подходящих под фильтры.</div>';
+}
+document.querySelectorAll('.tab-mini-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-mini-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    tlFilter = b.dataset.tl;
+    renderTraffic();
+  });
+});
+
+/* ---------- CALCULATOR ---------- */
+function fmtRub(n){ return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
+document.getElementById('cTarget').addEventListener('input', renderCalc);
+document.getElementById('cTerm').addEventListener('input', renderCalc);
+
+function renderCalc(){
+  const targetPct = +document.getElementById('cTarget').value;
+  document.getElementById('cTargetV').textContent = targetPct+'%';
+  const baseTarget = CALC.targetPct || 27;
+  const scale = targetPct/baseTarget;
+
+  let totCash=0, totAccred=0, totActualComm=0, totPossible=0;
+  let totBanks={tbank:0,domrf:0,sber:0,vtb:0,sovkom:0,alfa:0};
+  let totBestSum=0;
+
+  const rows = CALC.buckets.map(b=>{
+    const possible = b.label==='нет данных' ? b.cash : Math.max(0, Math.round(b.cash*targetPct/100));
+    const sb = {
+      tbank:b.banks.tbank*scale, domrf:b.banks.domrf*scale, sber:b.banks.sber*scale,
+      vtb:b.banks.vtb*scale, sovkom:(b.banks.sovkom||0)*scale, alfa:b.banks.alfa*scale,
+    };
+    const best = Math.max(sb.tbank, sb.domrf, sb.sber, sb.vtb, sb.sovkom, sb.alfa);
+    const missed = b.actualComm - best;
+    const pctActual = b.cash>0 ? (b.accred/b.cash*100) : 0;
+
+    totCash+=b.cash; totAccred+=b.accred; totActualComm+=b.actualComm; totPossible+=possible;
+    totBanks.tbank+=sb.tbank; totBanks.domrf+=sb.domrf; totBanks.sber+=sb.sber;
+    totBanks.vtb+=sb.vtb; totBanks.sovkom+=sb.sovkom; totBanks.alfa+=sb.alfa;
+    totBestSum += best;
+
+    return `<tr ${b.label==='нет данных'?'style="opacity:.55"':''}>
+      <td class="city-cell">${b.label}</td>
+      <td>${b.cash}</td>
+      <td>${b.sum? b.sum.toLocaleString('ru-RU'):'—'}</td>
+      <td>${b.accred}</td>
+      <td>${pctActual.toFixed(1)}%</td>
+      <td>${b.actualComm? fmtRub(b.actualComm):'—'}</td>
+      <td>${possible}</td>
+      <td>${fmtRub(sb.tbank)}</td>
+      <td>${fmtRub(sb.domrf)}</td>
+      <td>${fmtRub(sb.sber)}</td>
+      <td>${fmtRub(sb.vtb)}</td>
+      <td>${fmtRub(sb.sovkom)}</td>
+      <td>${fmtRub(sb.alfa)}</td>
+      <td style="font-weight:700;">${fmtRub(best)}</td>
+      <td style="font-weight:700;color:${missed>=0?'var(--green)':'var(--red)'}">${missed>=0?'+':''}${fmtRub(missed)}</td>
+    </tr>`;
+  });
+
+  rows.push(`<tr style="background:#F7F8F6; font-weight:700;">
+    <td class="city-cell">Итого</td>
+    <td>${totCash}</td>
+    <td>—</td>
+    <td>${totAccred}</td>
+    <td>${totCash? (totAccred/totCash*100).toFixed(1) : '0.0'}%</td>
+    <td>${fmtRub(totActualComm)}</td>
+    <td>${totPossible}</td>
+    <td>${fmtRub(totBanks.tbank)}</td>
+    <td>${fmtRub(totBanks.domrf)}</td>
+    <td>${fmtRub(totBanks.sber)}</td>
+    <td>${fmtRub(totBanks.vtb)}</td>
+    <td>${fmtRub(totBanks.sovkom)}</td>
+    <td>${fmtRub(totBanks.alfa)}</td>
+    <td>${fmtRub(totBestSum)}</td>
+    <td style="color:${(totActualComm-totBestSum)>=0?'var(--green)':'var(--red)'}">${fmtRub(totActualComm-totBestSum)}</td>
+  </tr>`);
+
+  document.getElementById('calcBody').innerHTML = rows.join('');
+  const actualPctTotal = totCash ? (totAccred/totCash*100) : 0;
+  document.getElementById('calcActualPct').textContent = actualPctTotal.toFixed(1).replace('.',',')+'%';
+  document.getElementById('calcActualNote').textContent = `${totAccred} из ${totCash} сделок с наличными`;
+  document.getElementById('calcActualComm').textContent = fmtRub(totActualComm);
+  const missedTotal = totActualComm-totBestSum;
+  document.getElementById('calcMissedTotal').textContent = (missedTotal>=0?'+':'')+fmtRub(missedTotal);
+  document.getElementById('calcMissedTotal').style.color = missedTotal>=0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('calcMissedNote').textContent = `при target ${targetPct}% и лучшем банке по каждому чеку`;
+
+  document.getElementById('funnel').innerHTML = `
+    <div class="fstep"><span class="flabel">Сделки с наличными за период</span><span class="fval">${totCash} шт</span></div>
+    <div class="arrow-down">↓</div>
+    <div class="fstep"><span class="flabel">Факт. проведённый АКК (${actualPctTotal.toFixed(1)}%)</span><span class="fval">${totAccred} шт · ${fmtRub(totActualComm)}</span></div>
+    <div class="arrow-down">↓</div>
+    <div class="fstep"><span class="flabel">Лучший возможный АКК при target ${targetPct}% (оптимальный банк на чек)</span><span class="fval">${totPossible} шт · ${fmtRub(totBestSum)}</span></div>
+    <div class="arrow-down">↓</div>
+    <div class="fstep ${missedTotal<0?'loss':''}"><span class="flabel">Упущенная выгода по АКК</span><span class="fval" style="color:${missedTotal>=0?'var(--green)':'var(--red)'}">${fmtRub(missedTotal)}</span></div>
+  `;
+}
+
+/* ---------- ОТЧЁТЫ ПО ГОРОДУ ЗА МЕСЯЦ ---------- */
+function populateReportSelectors(){
+  const citySel = document.getElementById('rCity');
+  const prevCity = citySel.value;
+  citySel.innerHTML = '';
+  [...CITIES].map(c=>c.city).sort((a,b)=>a.localeCompare(b,'ru')).forEach(c=>{
+    const o = document.createElement('option'); o.value=c; o.textContent=c;
+    citySel.appendChild(o);
+  });
+  if (CITIES.some(c=>c.city===prevCity)) citySel.value = prevCity;
+  else if (CITIES.some(c=>c.city===CALC.city)) citySel.value = CALC.city;
+
+  const monthSel = document.getElementById('rMonth');
+  const prevMonth = monthSel.value;
+  monthSel.innerHTML = '';
+  MONTHS.forEach((m,i)=>{
+    const o = document.createElement('option'); o.value=i; o.textContent=m;
+    monthSel.appendChild(o);
+  });
+  monthSel.value = (prevMonth !== '' && +prevMonth < MONTHS.length) ? prevMonth : MONTHS.length-1;
+
+  document.getElementById('reportActions').style.display = 'none';
+  document.getElementById('reportOutput').innerHTML = '';
+}
+
+function buildCityErCalcRows(cityName, targetPct){
+  // Возвращает таблицу калькулятора АКК для города, если данные калькулятора относятся к этому городу.
+  if (!CALC || CALC.city !== cityName || !CALC.buckets || !CALC.buckets.length) return null;
+  const baseTarget = CALC.targetPct || 27;
+  const scale = targetPct / baseTarget;
+  let totCash=0, totAccred=0, totActualComm=0, totBestSum=0;
+  const rows = CALC.buckets.map(b=>{
+    const sb = {
+      tbank:b.banks.tbank*scale, domrf:b.banks.domrf*scale, sber:b.banks.sber*scale,
+      vtb:b.banks.vtb*scale, sovkom:(b.banks.sovkom||0)*scale, alfa:b.banks.alfa*scale,
+    };
+    const best = Math.max(sb.tbank, sb.domrf, sb.sber, sb.vtb, sb.sovkom, sb.alfa);
+    const missed = b.actualComm - best;
+    totCash+=b.cash; totAccred+=b.accred; totActualComm+=b.actualComm; totBestSum+=best;
+    return { label:b.label, cash:b.cash, accred:b.accred, actualComm:b.actualComm, best, missed };
+  });
+  return { rows, totCash, totAccred, totActualComm, totBestSum, missedTotal: totActualComm - totBestSum, period: CALC.period };
+}
+
+function buildReportHtml(cityName, monthIdx){
+  const city = CITIES.find(c=>c.city===cityName);
+  if (!city) return '<div class="report-note">Город не найден в текущих данных.</div>';
+
+  const monthLabel = MONTHS[monthIdx];
+  const cur = city.values[monthIdx];
+  const prev = monthIdx>0 ? city.values[monthIdx-1] : cur;
+  const delta = cur - prev;
+  const network = AGGS.find(a=>a.city==='Вся сеть').values[monthIdx];
+  const fifAgg = city.cat ? AGGS.find(a=>a.city===city.cat) : null;
+  const fifVal = fifAgg ? fifAgg.values[monthIdx] : null;
+  const generatedStr = new Date().toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+  const erRows = MONTHS.map((m,i)=>`
+    <tr>
+      <td class="lbl-cell">${m}</td>
+      <td>${city.values[i].toFixed(1)}%</td>
+      <td>${AGGS.find(a=>a.city==='Вся сеть').values[i].toFixed(1)}%</td>
+    </tr>`).join('');
+
+  const calc = buildCityErCalcRows(cityName, CALC.targetPct || 27);
+  let calcSection;
+  if (calc){
+    const bucketRows = calc.rows.map(r=>`
+      <tr>
+        <td class="lbl-cell">${r.label}</td>
+        <td>${r.cash}</td>
+        <td>${r.accred}</td>
+        <td>${r.actualComm? fmtRub(r.actualComm) : '—'}</td>
+        <td>${fmtRub(r.best)}</td>
+        <td style="color:${r.missed>=0?'var(--green)':'var(--red)'}">${r.missed>=0?'+':''}${fmtRub(r.missed)}</td>
+      </tr>`).join('');
+    calcSection = `
+      <h2>Аккредитивы (АКК) — все банки</h2>
+      <div class="report-kpis">
+        <div class="report-kpi"><div class="lbl">Период данных</div><div class="val" style="font-size:13px;">${calc.period}</div></div>
+        <div class="report-kpi"><div class="lbl">% АКК факт</div><div class="val">${calc.totCash? (calc.totAccred/calc.totCash*100).toFixed(1):'0.0'}%</div></div>
+        <div class="report-kpi"><div class="lbl">Факт. КВ по банкам</div><div class="val">${fmtRub(calc.totActualComm)}</div></div>
+        <div class="report-kpi"><div class="lbl">Упущенная выгода</div><div class="val" style="color:${calc.missedTotal>=0?'var(--green)':'var(--red)'}">${fmtRub(calc.missedTotal)}</div></div>
+      </div>
+      <table>
+        <thead><tr><th>Чек сделки</th><th>Сделки нал., шт</th><th>АКК факт, шт</th><th>КВ факт, ₽</th><th>Лучший банк, ₽</th><th>Упущенная выгода, ₽</th></tr></thead>
+        <tbody>${bucketRows}</tbody>
+      </table>
+      <div class="report-note" style="margin-top:8px;">Разбивка по банкам (Т-Банк, ДомРФ, Сбер, ВТБ, Совкомбанк, Альфа) — оптимальный банк выбран отдельно для каждого диапазона чека, см. полную таблицу во вкладке «Калькулятор».</div>`;
+  } else {
+    calcSection = `
+      <h2>Аккредитивы (АКК) — все банки</h2>
+      <div class="report-note">
+        Детализация по аккредитивам сейчас доступна только для города <b>${CALC.city}</b> — источник данных
+        (лист «Калькулятор по аккредитивам») ведёт разбивку по одному городу за раз. Чтобы получить этот раздел
+        для города «${cityName}», переключите город в исходном листе «Калькулятор» на «${cityName}» и обновите дашборд
+        (кнопка «Обновить сейчас» на вкладке «Обзор»).
+      </div>`;
+  }
+
+  return `
+    <div class="report-doc">
+      <h1>Отчёт по городу: ${city.city}</h1>
+      <div class="report-sub">Период: ${monthLabel} · ФиФ: ${city.cat || '—'} · Грейд: ${city.grade || '—'} · Сформировано: ${generatedStr}</div>
+
+      <h2>Электронная регистрация (ЭР)</h2>
+      <div class="report-kpis">
+        <div class="report-kpi"><div class="lbl">% ЭР — ${monthLabel}</div><div class="val">${cur.toFixed(1)}%</div></div>
+        <div class="report-kpi"><div class="lbl">Δ к пред. месяцу</div><div class="val" style="color:${delta>=0?'var(--green)':'var(--red)'}">${delta>=0?'+':''}${delta.toFixed(1)} п.п.</div></div>
+        <div class="report-kpi"><div class="lbl">Вся сеть — ${monthLabel}</div><div class="val">${network.toFixed(1)}%</div></div>
+        <div class="report-kpi"><div class="lbl">${city.cat||'ФиФ'} — ${monthLabel}</div><div class="val">${fifVal!==null? fifVal.toFixed(1)+'%' : '—'}</div></div>
+      </div>
+      <table>
+        <thead><tr><th>Месяц</th><th>${city.city}</th><th>Вся сеть</th></tr></thead>
+        <tbody>${erRows}</tbody>
+      </table>
+
+      ${calcSection}
+    </div>
+  `;
+}
+
+function generateReport(){
+  const cityName = document.getElementById('rCity').value;
+  const monthIdx = +document.getElementById('rMonth').value;
+  if (!cityName){
+    document.getElementById('reportOutput').innerHTML = '<div class="report-note">Выберите город.</div>';
+    document.getElementById('reportActions').style.display = 'none';
+    return;
+  }
+  document.getElementById('reportOutput').innerHTML = buildReportHtml(cityName, monthIdx);
+  document.getElementById('reportActions').style.display = 'flex';
+}
+
+function downloadReport(){
+  const content = document.getElementById('reportOutput').innerHTML;
+  if (!content) return;
+  const cityName = document.getElementById('rCity').value || 'город';
+  const monthLabel = MONTHS[+document.getElementById('rMonth').value] || '';
+  const doc = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">
+<title>Отчёт — ${cityName} — ${monthLabel}</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  body{font-family:'Manrope',system-ui,sans-serif; background:#EFF1EE; padding:30px; color:#1B2420;}
+  .num{font-family:'IBM Plex Mono',monospace;}
+  .report-doc{background:#fff; border:1px solid #DADFDA; border-radius:10px; padding:28px 30px; max-width:900px; margin:0 auto;}
+  .report-doc h1{font-size:20px; margin:0 0 2px;}
+  .report-sub{font-size:12.5px; color:#5B655F; margin-bottom:22px;}
+  .report-doc h2{font-size:15px; margin:22px 0 10px; padding-top:16px; border-top:1px solid #DADFDA;}
+  .report-doc h2:first-of-type{border-top:none; padding-top:0; margin-top:0;}
+  .report-kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px;}
+  .report-kpi{border:1px solid #DADFDA; border-radius:8px; padding:10px 12px;}
+  .report-kpi .lbl{font-size:10.5px; color:#5B655F; margin-bottom:4px;}
+  .report-kpi .val{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:18px;}
+  table{width:100%; border-collapse:collapse; font-size:12px; margin-bottom:6px;}
+  th{text-align:left; font-size:10.5px; color:#5B655F; font-weight:600; padding:6px 8px; border-bottom:1px solid #DADFDA;}
+  td{padding:6px 8px; border-bottom:1px solid #EEF0EE; font-family:'IBM Plex Mono',monospace;}
+  .lbl-cell{font-family:'Manrope',sans-serif;}
+  .report-note{font-size:12px; color:#5B655F; background:#F7F8F6; border:1px dashed #B7BDB9; border-radius:8px; padding:10px 13px;}
+</style></head><body>${content}</body></html>`;
+  const blob = new Blob([doc], {type:'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Отчёт — ${cityName} — ${monthLabel}.html`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('btnGenerateReport').addEventListener('click', generateReport);
+document.getElementById('btnPrintReport').addEventListener('click', () => window.print());
+document.getElementById('btnDownloadReport').addEventListener('click', downloadReport);
+
+/* ---------- RENDER ALL ---------- */
+function renderAll(){
+  renderKPIs();
+  renderDomklikChart();
+  renderTrend();
+  renderFifBars();
+  renderLeadersLaggards();
+  renderCompare();
+  renderHeatTable();
+  renderTraffic();
+  renderCalc();
+}
+
+/* ---------- EVENTS ---------- */
+document.getElementById('fPeriod').addEventListener('change', e=>{ state.period=+e.target.value; renderAll(); });
+document.getElementById('fCat').addEventListener('change', e=>{ state.cat=e.target.value; renderAll(); });
+document.getElementById('fGrade').addEventListener('change', e=>{ state.grade=e.target.value; renderAll(); });
+document.getElementById('fCity').addEventListener('change', e=>{ state.city=e.target.value; renderAll(); });
+document.getElementById('resetFilters').addEventListener('click', ()=>{
+  state.cat=''; state.grade=''; state.city='';
+  document.getElementById('fCat').value='';
+  document.getElementById('fGrade').value='';
+  document.getElementById('fCity').value='';
+  renderAll();
+});
+
+const titles = {
+  overview:['Обзор','Проникновение электронной регистрации (ЭР) по сети, ФиФ и городам'],
+  analytics:['Аналитика','Сравнение города с лучшей / худшей практикой и полная таблица по городам'],
+  traffic:['Светофор','Статус городов по уровню проникновения ЭР — прототип пороговой модели'],
+  calc:['Калькулятор','Расчёт упущенной выгоды по АКК — воронка правильного выбора'],
+  reports:['Отчёты','Отчёт по городу за месяц: ЭР, аккредитивы по банкам, упущенная выгода'],
+};
+document.querySelectorAll('.navlink').forEach(link=>{
+  link.addEventListener('click', ()=>{
+    document.querySelectorAll('.navlink').forEach(l=>l.classList.remove('active'));
+    link.classList.add('active');
+    const tab = link.dataset.tab;
+    document.querySelectorAll('.tabpage').forEach(p=>p.classList.remove('active'));
+    document.getElementById('tab-'+tab).classList.add('active');
+    document.getElementById('pageTitle').textContent = titles[tab][0];
+    document.getElementById('pageDesc').textContent = titles[tab][1];
+  });
+});
+
+init();
+</script>
+</body>
+</html>
