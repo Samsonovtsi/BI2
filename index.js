@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25 МБ
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 МБ; обработка в отдельном worker
   fileFilter: (req, file, cb) => {
     const okExt = /\.(xlsx|xlsm)$/i.test(file.originalname || '');
     if (!okExt) return cb(new Error('Ожидается файл .xlsx или .xlsm'));
@@ -72,10 +72,11 @@ app.post('/api/upload', (req, res) => {
 
 // Путь проверки состояния — можно указать в настройках App Platform.
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, uptime: process.uptime() });
+  res.json({ ok: true, uptime: process.uptime(), schemaVersion: 3 });
 });
 
 app.listen(PORT, () => {
   console.log(`ЭР и АКК дашборд слушает порт ${PORT}`);
   startScheduler();
 });
+
