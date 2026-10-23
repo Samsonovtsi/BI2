@@ -4,6 +4,7 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getData, refreshData, startScheduler, applyUploadedWorkbook } from './lib/sheets.js';
+import { getPlans, savePlan, deletePlan, listSnapshots, getSnapshot } from './lib/operations.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -20,6 +21,18 @@ const upload = multer({
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json({limit:'32kb'}));
+
+app.get('/api/plans', (req,res) => { try { res.json(getPlans()); } catch(e) { res.status(500).json({message:e.message}); } });
+app.put('/api/plans', async (req,res) => {
+  try { res.json(savePlan(req.body)); } catch(e) { res.status(400).json({message:e.message}); }
+});
+app.delete('/api/plans/:id', (req,res) => { try { res.json(deletePlan(req.params.id)); } catch(e) { res.status(500).json({message:e.message}); } });
+app.get('/api/snapshots', (req,res) => { try { res.json(listSnapshots()); } catch(e) { res.status(500).json({message:e.message}); } });
+app.get('/api/snapshots/:id', (req,res) => {
+  try { const snapshot=getSnapshot(req.params.id); if(!snapshot) return res.status(404).json({message:'Срез не найден'}); res.json(snapshot); }
+  catch(e) { res.status(500).json({message:e.message}); }
+});
 
 // Отдаёт закэшированные данные, при необходимости фоново обновляясь.
 app.get('/api/data', async (req, res) => {

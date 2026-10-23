@@ -366,6 +366,9 @@
       <div class="navlink" data-tab="banks"><span class="dot"></span><span class="lbl">Банки и комиссии</span></div>
       <div class="navlink" data-tab="nominal"><span class="dot"></span><span class="lbl">Номинальные счета</span></div>
       <div class="navlink" data-tab="sources"><span class="dot"></span><span class="lbl">Источники и проверки</span></div>
+      <div class="navlink" data-tab="cosmos"><span class="dot"></span><span class="lbl">Космос и сверка</span></div>
+      <div class="navlink" data-tab="plans"><span class="dot"></span><span class="lbl">Планы городов</span></div>
+      <div class="navlink" data-tab="quality"><span class="dot"></span><span class="lbl">Отклонения и срезы</span></div>
     </nav>
     <div class="sidebar-foot">
       <div><b>Источники:</b> Google Sheets «Карта онлайн (ЭР, Аккредитивы)» и «Калькулятор по аккредитивам Голендухина»</div>
@@ -483,7 +486,7 @@
         <div class="grid2">
           <div class="panel">
             <h3 id="trendTitle">Динамика по метрикам</h3>
-            <div class="panel-note" id="trendNote">Наша база, снимки на конец месяца</div>
+            <div class="panel-note" id="trendNote">Наша база, значения исходных месячных сводов</div>
             <div id="trendChart"></div>
             <div class="legend" id="trendLegend"></div>
           </div>
@@ -504,6 +507,10 @@
 
       <!-- ANALYTICS -->
       <section class="tabpage" id="tab-analytics">
+        <div class="panel details-controls"><div class="field"><label for="analysisMetric">Показатель</label><select id="analysisMetric"><option value="er">ЭР</option><option value="akk">АКК</option><option value="domklik">ДомКлик</option></select></div>
+          <div class="field"><label for="analysisMode">Динамика</label><select id="analysisMode"><option value="monthly">По месяцам</option><option value="rolling3">За скользящие 3 месяца</option><option value="cumulative">Накопленно за выбранный период</option></select></div>
+          <div class="field"><label for="analysisMinBase">Минимальная месячная база для эталона</label><input id="analysisMinBase" type="number" min="0" value="20"></div>
+          <p class="panel-note">Используется методика исходных сводов. Эталоны учитывают ФиФ и грейд; выбор города сохраняет группу сравнения.</p></div>
         <div class="panel">
           <h3>Город vs лучшая / худшая практика</h3>
           <div class="panel-note">Серый — лучший и худший город сети за период, красный — выбранный вами город (задайте фильтр «Город»)</div>
@@ -518,7 +525,7 @@
 
         <div class="panel">
           <h3>Тепловая карта проникновения по городам</h3>
-          <div class="panel-note">Кликните заголовок столбца для сортировки. Ширина заливки ячейки соответствует % внедрения ЭР.</div>
+          <div class="panel-note">Кликните заголовок столбца для сортировки. Показатель выбирается выше. Пустые значения остаются в конце списка.</div>
           <div class="table-wrap">
             <table id="heatTable">
               <thead>
@@ -532,8 +539,9 @@
 
       <!-- TRAFFIC LIGHT -->
       <section class="tabpage" id="tab-traffic">
+        <div class="panel details-controls"><label>Показатель <select id="trafficMetric"><option value="er">ЭР</option><option value="akk">АКК</option><option value="domklik">ДомКлик</option></select></label></div>
         <div class="callout">
-          <b>Черновой прототип.</b> Пороги ниже — рабочая заглушка (&lt;30% красный · 30–60% жёлтый · &gt;60% зелёный от % ЭР за выбранный месяц).
+          <b>Черновой прототип.</b> Пороги ниже — демонстрационные пороги для ЭР/АКК (&lt;30% красный · 30–60% жёлтый · ≥60% зелёный). Для доли ДомКлик направление обратное. Это светофор городов, персональная оценка риелторов требует отдельной детализации.
           Финальную логику нужно перенести из ТЗ «Светофор риелторов» (<span class="num">ecosystem.etagi.com/trafficLight</span>).
         </div>
         <div class="tabs-mini">
@@ -642,6 +650,9 @@
       <section class="tabpage" id="tab-banks"><div id="bankDetails"></div></section>
       <section class="tabpage" id="tab-nominal"><div id="nominalDetails"></div></section>
       <section class="tabpage" id="tab-sources"><div id="sourceDetails"></div></section>
+      <section class="tabpage" id="tab-cosmos"><div id="cosmosDetails"></div></section>
+      <section class="tabpage" id="tab-plans"><div id="plansDetails"></div></section>
+      <section class="tabpage" id="tab-quality"><div id="qualityDetails"></div></section>
 
       <!-- REPORTS -->
       <section class="tabpage" id="tab-reports">
@@ -676,6 +687,8 @@
 </div>
 
 <script src="/analytics.js"></script>
+<script src="/insight-model.js"></script>
+<script src="/insights.js"></script>
 <script>
 /* =========================================================================
    ДАННЫЕ ДАШБОРДА — приходят с собственного бэкенда (/api/data, /api/refresh).
@@ -940,6 +953,7 @@ function applyData(data, opts={}){
   AGGS = data.aggs.map(reindex);
   CITIES = data.cities.map(reindex);
   DIRECTORY = data.analytics?.directory?.length ? data.analytics.directory : [...new Map([...CITIES, ...(data.akk?.cities || []).map(c=>({...c, city:c.name}))].map(c=>[c.city,c])).values()];
+  DIRECTORY = [...new Map([...DIRECTORY,...Object.values(data.cosmos?.sheets || {}).filter(s=>s.kind!=='akkBanks').flatMap(s=>s.dataRows.filter(r=>!r.unknown).map(r=>({city:r.label,cat:'',grade:''})))].reverse().map(c=>[BI2Insights.key(c.city),c])).values()];
   CALC = data.calc || DEFAULT_DATA.calc;
   AKK = data.akk || { months: [], aggs: [], cities: [] };
   const preferred = opts.keepPeriod && MONTHS.includes(previousPeriod) ? previousPeriod : data.months.at(-1) || MONTHS.at(-1);
@@ -952,6 +966,7 @@ function applyData(data, opts={}){
   populateCalcSelectors();
   populateReportSelectors();
   BI2Analytics.update(data, state);
+  BI2Operations.update(data,state);
   renderAll();
   updateFreshBadge(data);
 }
@@ -1192,6 +1207,11 @@ function svgLine(w,h,series,opts={}){
     if (i % labelStep !== 0 && i !== labels.length-1) return;
     out += `<text x="${x(i)}" y="${h-6}" font-size="9" fill="#8A928C" text-anchor="middle">${m}</text>`;
   });
+  if(opts.band){
+    const [upper,lower]=opts.band;let segment=[];
+    const flush=()=>{if(segment.length>1){const points=[...segment.map(i=>`${x(i)},${y(upper[i])}`),...segment.slice().reverse().map(i=>`${x(i)},${y(lower[i])}`)].join(' ');out+=`<polygon points="${points}" fill="#C7CCC8" fill-opacity="0.3"/>`;}segment=[];};
+    upper.forEach((v,i)=>{if(v==null||lower[i]==null){flush();return;}segment.push(i);});flush();
+  }
   series.forEach(s=>{
     // разрываем линию на непрерывные участки, где нет null (нет данных за период)
     let seg = [];
@@ -1467,77 +1487,66 @@ function renderLeadersLaggards(){
   `;
 }
 
-function renderCompare(){
-  const list = applyFilters(CITIES);
-  const bestSeries = MONTHS.map((_,i)=> list.some(c=>c.values[i]!=null) ? Math.max(...list.map(c=>c.values[i]).filter(v=>v!=null)) : null);
-  const worstSeries = MONTHS.map((_,i)=> list.some(c=>c.values[i]!=null) ? Math.min(...list.map(c=>c.values[i]).filter(v=>v!=null)) : null);
-  const network = AGGS.find(a=>a.city==='Вся сеть')?.values || MONTHS.map(()=>null);
-  const series = [
-    {label:'Лучший', color:'#C7CCC8', width:2, values:bestSeries, dash:'4,3'},
-    {label:'Худший', color:'#9BA29D', width:2, values:worstSeries, dash:'4,3'},
-    {label:'Сеть', color:'#1F6F5C', width:2.4, values:network},
-  ];
-  if(state.city){
-    const c = CITIES.find(c=>c.city===state.city);
-    if(c) series.push({label:c.city, color:'#B5453F', width:3, values:c.values});
-  }
-  document.getElementById('compareChart').innerHTML = svgLine(760,260,series);
+function cityMetricRows(metric){
+  const entries=metric==='akk'?AKK.cities:CITIES;
+  const labels=metric==='akk'?AKK.months:MONTHS;
+  return entries.map(r=>({ ...r, city:r.city||r.name,
+    values:MONTHS.map(m=>{const i=labels.indexOf(m);return i<0?null:(metric==='domklik'?r.domklik:r.values)?.[i]??null;}),
+    counts:MONTHS.map(m=>{const i=labels.indexOf(m);return i<0?null:(metric==='domklik'?r.domklikCounts:r.counts)?.[i]??null;}),
+    denominators:MONTHS.map(m=>{const i=labels.indexOf(m);return i<0?null:(metric==='domklik'?r.domklikDenominators:r.denominators)?.[i]??null;})
+  }));
 }
-
+function windowValues(row,mode){
+  return MONTHS.map((m,i)=>{
+    if(mode==='monthly')return row.values[i];
+    const first=mode==='rolling3'?i-2:state.rangeStart;
+    if(first<0||first>i)return null;
+    const dates=MONTHS.slice(first,i+1).map(monthKeyFromLabel);
+    if(dates.some((d,j)=>j>0&&BI2Insights.previousMonth(d)!==dates[j-1]))return null;
+    return BI2Model.ratio(BI2Model.sum(row.counts.slice(first,i+1)),BI2Model.sum(row.denominators.slice(first,i+1)));
+  });
+}
+function renderCompare(){
+  const metric=document.getElementById('analysisMetric').value,mode=document.getElementById('analysisMode').value;
+  const minBase=Math.max(0,Number(document.getElementById('analysisMinBase').value)||0);
+  const all=cityMetricRows(metric),peers=all.filter(c=>BI2Model.matches(c,{...state,city:''}));
+  const curves=peers.map(c=>({row:c,values:windowValues(c,mode)}));
+  const extreme=(i,fn)=>{const first=mode==='rolling3'?i-2:mode==='cumulative'?state.rangeStart:i;
+    const vals=curves.filter(c=>c.values[i]!=null&&(minBase===0||(first>=0&&c.row.denominators.slice(first,i+1).every(v=>v!=null&&v>=minBase)))).map(c=>c.values[i]);return vals.length?fn(...vals):null;};
+  const best=MONTHS.map((_,i)=>extreme(i,metric==='domklik'?Math.min:Math.max)),worst=MONTHS.map((_,i)=>extreme(i,metric==='domklik'?Math.max:Math.min));
+  const source=metric==='akk'?AKK.aggs.find(c=>c.name==='Вся сеть'):AGGS.find(c=>c.city==='Вся сеть');
+  const labels=metric==='akk'?AKK.months:MONTHS;
+  const reindex=field=>MONTHS.map(m=>source?.[field]?.[labels.indexOf(m)]??null);
+  const network={values:reindex(metric==='domklik'?'domklik':'values'),counts:reindex(metric==='domklik'?'domklikCounts':'counts'),denominators:reindex(metric==='domklik'?'domklikDenominators':'denominators')};
+  const take=a=>a.slice(state.rangeStart,state.rangeEnd+1);
+  const series=[{color:'#C7CCC8',width:1.4,values:take(best)},{color:'#9BA29D',width:1.4,values:take(worst)},{color:'#1F6F5C',width:2.4,values:take(windowValues(network,mode))}];
+  const selected=all.find(c=>c.city===state.city);
+  if(selected)series.push({color:'#B5453F',width:3,values:take(windowValues(selected,mode))});
+  document.getElementById('compareChart').innerHTML=svgLine(760,260,series,{labels:take(MONTHS),band:[take(best),take(worst)]})+
+    `<p class="panel-note">${METRIC_META[metric].label}. Городов в группе: ${peers.length}. Для ДомКлик меньшая доля конкурента соответствует лучшему результату.</p>`;
+}
 let sortKey='last', sortDir=-1;
 function renderHeatTable(){
-  const head = document.getElementById('heatHeadRow');
-  head.innerHTML = `
-    <th data-key="city">Город</th>
-    <th data-key="cat">ФиФ</th>
-    <th data-key="grade">Грейд</th>
-    ${MONTHS.map((m,i)=>`<th data-key="${i}">${m}</th>`).join('')}
-    <th data-key="delta">Δ период</th>
-  `;
-  head.querySelectorAll('th').forEach(th=>{
-    th.addEventListener('click', ()=>{
-      const key = th.dataset.key;
-      if(sortKey===key) sortDir*=-1; else { sortKey=key; sortDir=-1; }
-      renderHeatTable();
-    });
-  });
-
-  const list = applyFilters(CITIES);
-  const maxAbs = 130;
-  const lastIdx = MONTHS.length-1;
-  list.sort((a,b)=>{
-    let av, bv;
-    if(sortKey==='city'||sortKey==='last') { }
-    if(sortKey==='city') { av=a.city; bv=b.city; return sortDir*av.localeCompare(bv,'ru'); }
-    if(sortKey==='cat') { av=a.cat; bv=b.cat; return sortDir*av.localeCompare(bv,'ru'); }
-    if(sortKey==='grade') { av=a.grade; bv=b.grade; return sortDir*av.localeCompare(bv,'ru'); }
-    if(sortKey==='delta') { av=a.values[lastIdx]-a.values[0]; bv=b.values[lastIdx]-b.values[0]; return sortDir*(av-bv); }
-    if(sortKey==='last') { av=a.values[lastIdx]; bv=b.values[lastIdx]; return sortDir*(av-bv); }
-    av=a.values[+sortKey]; bv=b.values[+sortKey];
-    return sortDir*(av-bv);
-  });
-  document.getElementById('heatBody').innerHTML = list.map(c=>{
-    const delta = c.values[lastIdx]!=null && c.values[0]!=null ? c.values[lastIdx]-c.values[0] : null;
-    const cells = c.values.map(v=>{
-      const w = Math.min(100,(v/maxAbs)*100);
-      return `<td class="pct-cell"><span class="pct-bar" style="width:${w}%"></span><span class="pct-val">${v==null?'—':v.toFixed(1)+'%'}</span></td>`;
-    }).join('');
-    const catClass = c.cat==='Ф1'?'f1':c.cat==='Ф2'?'f2':'f3';
-    return `<tr>
-      <td class="city-cell">${escapeHtml(c.city)}</td>
-      <td>${c.cat?`<span class="badge ${catClass}">${escapeHtml(c.cat)}</span>`:''}</td>
-      <td>${escapeHtml(c.grade)}</td>
-      ${cells}
-      <td style="font-weight:700;color:${delta>=0?'var(--green)':'var(--red)'}">${delta==null?'—':(delta>=0?'+':'')+delta.toFixed(1)+' п.п.'}</td>
-    </tr>`;
+  const metric=document.getElementById('analysisMetric').value;
+  const indexes=MONTHS.map((_,i)=>i).slice(state.rangeStart,state.rangeEnd+1),lastIdx=state.rangeEnd,firstIdx=state.rangeStart;
+  const head=document.getElementById('heatHeadRow');
+  head.innerHTML=`<th data-key="city">Город</th><th data-key="cat">ФиФ</th><th data-key="grade">Грейд</th>${indexes.map(i=>`<th data-key="${i}">${MONTHS[i]}</th>`).join('')}<th data-key="delta">Δ период</th>`;
+  head.querySelectorAll('th').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.key;if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=-1;}renderHeatTable();}));
+  const list=applyFilters(cityMetricRows(metric));
+  const value=r=>sortKey==='delta'?(r.values[lastIdx]!=null&&r.values[firstIdx]!=null?r.values[lastIdx]-r.values[firstIdx]:null):r.values[sortKey==='last'?lastIdx:+sortKey];
+  list.sort((a,b)=>{if(['city','cat','grade'].includes(sortKey))return sortDir*String(a[sortKey]).localeCompare(String(b[sortKey]),'ru');const av=value(a),bv=value(b);if(av==null)return bv==null?0:1;if(bv==null)return -1;return sortDir*(av-bv);});
+  document.getElementById('heatBody').innerHTML=list.map(c=>{
+    const delta=c.values[lastIdx]!=null&&c.values[firstIdx]!=null?c.values[lastIdx]-c.values[firstIdx]:null;
+    const cells=indexes.map(i=>{const v=c.values[i];return `<td class="pct-cell"><span class="pct-bar" style="width:${v==null?0:Math.max(0,Math.min(100,v/130*100))}%"></span><span class="pct-val">${v==null?'—':v.toFixed(1)+'%'}</span></td>`;}).join('');
+    return `<tr><td class="city-cell">${escapeHtml(c.city)}</td><td>${escapeHtml(c.cat)}</td><td>${escapeHtml(c.grade)}</td>${cells}<td>${delta==null?'—':(delta>=0?'+':'')+delta.toFixed(1)+' п.п.'}</td></tr>`;
   }).join('');
 }
 
 let tlFilter='all';
-function tlColor(v){ if(v==null) return 'unknown'; if(v<30) return 'red'; if(v<60) return 'yellow'; return 'green'; }
+function tlColor(v){ if(v==null) return 'unknown'; const competitor=document.getElementById('trafficMetric').value==='domklik'; if(v<30) return competitor?'green':'red'; if(v<60) return 'yellow'; return competitor?'red':'green'; }
 function renderTraffic(){
   const p = Math.min(state.period, MONTHS.length-1);
-  const list = applyFilters(CITIES);
+  const list = applyFilters(cityMetricRows(document.getElementById('trafficMetric').value));
   const filtered = list.filter(c=>tlFilter==='all' || tlColor(c.values[p])===tlFilter);
   document.getElementById('tlGrid').innerHTML = filtered.map(c=>{
     const col = tlColor(c.values[p]);
@@ -1577,7 +1586,7 @@ function renderCalc(){
 
   let totCash=0, totAccred=0, totActualComm=0, totPossible=0;
   let totBanks={tbank:0,domrf:0,sber:0,vtb:0,sovkom:0,alfa:0};
-  let totBestSum=0;
+  let totBestSum=0, totMissed=0;
 
   const rows = CALC.buckets.map(b=>{
     const possible = b.label==='нет данных' ? b.cash : Math.max(0, Math.round(b.cash*targetPct/100));
@@ -1586,13 +1595,14 @@ function renderCalc(){
       vtb:b.banks.vtb*scale, sovkom:(b.banks.sovkom||0)*scale, alfa:b.banks.alfa*scale,
     };
     const best = Math.max(sb.tbank, sb.domrf, sb.sber, sb.vtb, sb.sovkom, sb.alfa);
-    const missed = b.actualComm - best;
+    const missed = Math.max(0, best - b.actualComm);
     const pctActual = b.cash>0 ? (b.accred/b.cash*100) : 0;
 
     totCash+=b.cash; totAccred+=b.accred; totActualComm+=b.actualComm; totPossible+=possible;
     totBanks.tbank+=sb.tbank; totBanks.domrf+=sb.domrf; totBanks.sber+=sb.sber;
     totBanks.vtb+=sb.vtb; totBanks.sovkom+=sb.sovkom; totBanks.alfa+=sb.alfa;
     totBestSum += best;
+    totMissed += missed;
 
     return `<tr ${b.label==='нет данных'?'style="opacity:.55"':''}>
       <td class="city-cell">${escapeHtml(b.label)}</td>
@@ -1609,7 +1619,7 @@ function renderCalc(){
       <td>${fmtRub(sb.sovkom)}</td>
       <td>${fmtRub(sb.alfa)}</td>
       <td style="font-weight:700;">${fmtRub(best)}</td>
-      <td style="font-weight:700;color:${missed>=0?'var(--green)':'var(--red)'}">${missed>=0?'+':''}${fmtRub(missed)}</td>
+      <td style="font-weight:700;color:${missed>0?'var(--red)':'var(--green)'}">${fmtRub(missed)}</td>
     </tr>`;
   });
 
@@ -1628,7 +1638,7 @@ function renderCalc(){
     <td>${fmtRub(totBanks.sovkom)}</td>
     <td>${fmtRub(totBanks.alfa)}</td>
     <td>${fmtRub(totBestSum)}</td>
-    <td style="color:${(totActualComm-totBestSum)>=0?'var(--green)':'var(--red)'}">${fmtRub(totActualComm-totBestSum)}</td>
+    <td style="color:${totMissed>0?'var(--red)':'var(--green)'}">${fmtRub(totMissed)}</td>
   </tr>`);
 
   document.getElementById('calcBody').innerHTML = rows.join('');
@@ -1636,10 +1646,10 @@ function renderCalc(){
   document.getElementById('calcActualPct').textContent = actualPctTotal.toFixed(1).replace('.',',')+'%';
   document.getElementById('calcActualNote').textContent = `${totAccred} из ${totCash} сделок с наличными`;
   document.getElementById('calcActualComm').textContent = fmtRub(totActualComm);
-  const missedTotal = totActualComm-totBestSum;
-  document.getElementById('calcMissedTotal').textContent = (missedTotal>=0?'+':'')+fmtRub(missedTotal);
-  document.getElementById('calcMissedTotal').style.color = missedTotal>=0 ? 'var(--green)' : 'var(--red)';
-  document.getElementById('calcMissedNote').textContent = `при target ${targetPct}% и лучшем банке по каждому чеку`;
+  const missedTotal = totMissed;
+  document.getElementById('calcMissedTotal').textContent = fmtRub(missedTotal);
+  document.getElementById('calcMissedTotal').style.color = missedTotal>0 ? 'var(--red)' : 'var(--green)';
+  document.getElementById('calcMissedNote').textContent = `сумма положительного прироста по группам чеков при цели ${targetPct}%`;
 
   document.getElementById('funnel').innerHTML = `
     <div class="fstep"><span class="flabel">Сделки с наличными за период</span><span class="fval">${totCash} шт</span></div>
@@ -1648,7 +1658,7 @@ function renderCalc(){
     <div class="arrow-down">↓</div>
     <div class="fstep"><span class="flabel">Лучший возможный АКК при target ${targetPct}% (оптимальный банк на чек)</span><span class="fval">${totPossible} шт · ${fmtRub(totBestSum)}</span></div>
     <div class="arrow-down">↓</div>
-    <div class="fstep ${missedTotal<0?'loss':''}"><span class="flabel">Упущенная выгода по АКК</span><span class="fval" style="color:${missedTotal>=0?'var(--green)':'var(--red)'}">${fmtRub(missedTotal)}</span></div>
+    <div class="fstep ${missedTotal>0?'loss':''}"><span class="flabel">Упущенная выгода по АКК</span><span class="fval" style="color:${missedTotal>0?'var(--red)':'var(--green)'}">${fmtRub(missedTotal)}</span></div>
   `;
 }
 
@@ -1689,11 +1699,11 @@ function buildCityErCalcRows(cityName, targetPct){
       vtb:b.banks.vtb*scale, sovkom:(b.banks.sovkom||0)*scale, alfa:b.banks.alfa*scale,
     };
     const best = Math.max(sb.tbank, sb.domrf, sb.sber, sb.vtb, sb.sovkom, sb.alfa);
-    const missed = b.actualComm - best;
+    const missed = Math.max(0, best - b.actualComm);
     totCash+=b.cash; totAccred+=b.accred; totActualComm+=b.actualComm; totBestSum+=best;
     return { label:b.label, cash:b.cash, accred:b.accred, actualComm:b.actualComm, best, missed };
   });
-  return { rows, totCash, totAccred, totActualComm, totBestSum, missedTotal: totActualComm - totBestSum, period: CALC.period };
+  return { rows, totCash, totAccred, totActualComm, totBestSum, missedTotal: rows.reduce((n,r)=>n+r.missed,0), period: CALC.period };
 }
 
 const AKK_BANK_LABELS = {sber:'Сбер', domrf:'Дом.РФ', vtb:'ВТБ', tbank:'Т-Банк'};
@@ -1773,7 +1783,7 @@ function buildReportHtml(cityName, monthIdx){
         <td>${r.accred}</td>
         <td>${r.actualComm? fmtRub(r.actualComm) : '—'}</td>
         <td>${fmtRub(r.best)}</td>
-        <td style="color:${r.missed>=0?'var(--green)':'var(--red)'}">${r.missed>=0?'+':''}${fmtRub(r.missed)}</td>
+        <td style="color:${r.missed>0?'var(--red)':'var(--green)'}">${fmtRub(r.missed)}</td>
       </tr>`).join('');
     calcSection = `
       <h2>Разбивка по чекам сделок (данные калькулятора, город ${escapeHtml(CALC.city)})</h2>
@@ -1781,7 +1791,7 @@ function buildReportHtml(cityName, monthIdx){
         <div class="report-kpi"><div class="lbl">Период данных</div><div class="val" style="font-size:13px;">${calc.period}</div></div>
         <div class="report-kpi"><div class="lbl">% АКК факт</div><div class="val">${calc.totCash? (calc.totAccred/calc.totCash*100).toFixed(1):'0.0'}%</div></div>
         <div class="report-kpi"><div class="lbl">Факт. КВ по банкам</div><div class="val">${fmtRub(calc.totActualComm)}</div></div>
-        <div class="report-kpi"><div class="lbl">Упущенная выгода</div><div class="val" style="color:${calc.missedTotal>=0?'var(--green)':'var(--red)'}">${fmtRub(calc.missedTotal)}</div></div>
+        <div class="report-kpi"><div class="lbl">Упущенная выгода</div><div class="val" style="color:${calc.missedTotal>0?'var(--red)':'var(--green)'}">${fmtRub(calc.missedTotal)}</div></div>
       </div>
       <table>
         <thead><tr><th>Чек сделки</th><th>Сделки нал., шт</th><th>АКК факт, шт</th><th>КВ факт, ₽</th><th>Лучший банк, ₽</th><th>Упущенная выгода, ₽</th></tr></thead>
@@ -1881,9 +1891,13 @@ function renderAll(){
   renderCalc();
   BI2Analytics.syncPeriod(monthKeyFromLabel(MONTHS[state.period]));
   BI2Analytics.render(state);
+  BI2Operations.render(state);
 }
 
 /* ---------- EVENTS ---------- */
+for(const id of ['analysisMetric','analysisMode','analysisMinBase'])document.getElementById(id).addEventListener('change',()=>{renderCompare();renderHeatTable();});
+document.getElementById('trafficMetric').addEventListener('change',renderTraffic);
+
 document.getElementById('fPeriod').addEventListener('change', e=>{ state.period=+e.target.value; renderAll(); });
 document.getElementById('fCat').addEventListener('change', e=>{ state.cat=e.target.value; renderAll(); });
 document.getElementById('fGrade').addEventListener('change', e=>{ state.grade=e.target.value; renderAll(); });
@@ -1923,6 +1937,9 @@ document.getElementById('resetFilters').addEventListener('click', ()=>{
 });
 
 const titles = {
+  cosmos:['Космос и сверка','Исходные метрики, фильтры и контрольные итоги'],
+  plans:['Планы городов','План, факт и необходимое количество операций'],
+  quality:['Отклонения и срезы','Сигналы качества и история зафиксированных значений'],
   overview:['Обзор','Проникновение электронной регистрации (ЭР) по сети, ФиФ и городам'],
   analytics:['Аналитика','Сравнение города с лучшей / худшей практикой и полная таблица по городам'],
   traffic:['Светофор','Статус городов по уровню проникновения ЭР — прототип пороговой модели'],

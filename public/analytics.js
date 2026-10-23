@@ -6,6 +6,7 @@
   const finite = v => typeof v === 'number' && Number.isFinite(v);
   const sum = values => values.length && values.every(finite) ? values.reduce((a, b) => a + b, 0) : null;
   const ratio = (n, d) => finite(n) && finite(d) && d > 0 ? 100 * n / d : null;
+  const average = (n, d) => finite(n) && finite(d) && d > 0 ? n / d : null;
   const html = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (v, digits = 2) => finite(v) ? v.toLocaleString('ru-RU', { maximumFractionDigits: digits }) : '—';
   const pct = v => finite(v) ? `${fmt(v)}%` : '—';
@@ -38,7 +39,8 @@
       const parts = records.map(r => r.products[p.id]).filter(Boolean);
       const counts = parts.reduce((n, r) => n + r.count, 0);
       const total = field => !covered || !records.length ? null : parts.some(r => r['missing' + field[0].toUpperCase() + field.slice(1)] > 0) ? null : parts.reduce((n, r) => n + r[field], 0);
-      return { ...p, count: covered && records.length ? counts : null, fee: total('fee'), centralIncome: total('centralIncome'), cityIncome: total('cityIncome') };
+      const count=covered && records.length ? counts : null, fee=total('fee'), cityIncome=total('cityIncome');
+      return { ...p, count, fee, centralIncome: total('centralIncome'), cityIncome, averageFee:average(fee,count), averageCityIncome:average(cityIncome,count) };
     });
   }
   function summarize(a, filters, from, to, method = 'summary') {
@@ -49,14 +51,15 @@
       const bankRows = products(selected, a.products, a.coverage['АКК Data'] || [], periodMonths);
       const weighted = selected.length && selected.every(r => finite(r.averageCash) && finite(r.cashRaw));
       const cashRaw = sum(selected.map(r => r.cashRaw));
-      return { cashRaw, newBase: sum(selected.map(r => r.newBase)),
+      const operations=sum(bankRows.map(p=>p.count)),income=sum(bankRows.map(p=>p.cityIncome)),fee=sum(bankRows.map(p=>p.fee));
+      return { cashRaw, newBase: sum(selected.map(r => r.newBase)), averageFee:average(fee,operations),averageCityIncome:average(income,operations),
         averageCash: weighted && cashRaw > 0 ? selected.reduce((n, r) => n + r.averageCash * r.cashRaw, 0) / cashRaw : null,
         er: metric(selected, 'er', method), akk: metric(selected, 'akk', method), domklik: metric(selected, 'domklik', method),
         products: bankRows, cityIncome: sum(bankRows.map(p => p.cityIncome)), fee: sum(bankRows.map(p => p.fee)), centralIncome: sum(bankRows.map(p => p.centralIncome)) };
     }
     return { months, records, total: rollup(records, months), byMonth: months.map(m => ({ month: m, ...rollup(records.filter(r => r.month === m), [m]) })) };
   }
-  global.BI2Model = { sum, ratio, html, matches, getRecords, metric, summarize };
+  global.BI2Model = { sum, ratio, average, html, matches, getRecords, metric, summarize };
   if (typeof document === 'undefined') return;
 
   let dataset = null, analytics = null, filters = {}, from = '', to = '', method = 'summary', lastPeriod = '', exports = {};
@@ -86,6 +89,8 @@
       ['Количество ДомКлик', d => d.domklik.count, fmt], ['Знаменатель ДомКлик', d => d.domklik.base, fmt], ['Проникновение ДомКлик', d => d.domklik.pct, pct],
       ['Количество АКК / СБР', d => d.akk.count, fmt], ['Знаменатель АКК / СБР', d => d.akk.base, fmt], ['Проникновение АКК / СБР', d => d.akk.pct, pct],
       ['Вознаграждение от банков, ₽', d => d.fee, fmt], ['Доход ЦО, ₽', d => d.centralIncome, fmt], ['Доход города, ₽', d => d.cityIncome, fmt],
+      ['Среднее вознаграждение на операцию АКК / СБР, ₽',d=>d.averageFee,fmt],
+      ['Средний доход города на операцию АКК / СБР, ₽',d=>d.averageCityIncome,fmt],
     ];
     for (const p of analytics.products) {
       defs.push([`${p.bank} · ${p.type} — количество`, d => d.products.find(x => x.id === p.id)?.count, fmt]);
@@ -102,12 +107,12 @@
     const s = summarize(analytics, filters, from, to, method);
     document.getElementById('cityDetails').innerHTML = `${controls('city')}${note()}<div class="panel">${card(s, scope(filters), 'city')}<button class="reset" data-export="city">Скачать таблицу CSV</button></div>`;
     const banks = s.total.products;
-    const rows = banks.map(p => [`${p.bank} · ${p.type}`, fmt(p.count, 0), rub(p.fee), rub(p.centralIncome), rub(p.cityIncome)]);
-    const headers = ['Банк и продукт', 'Операций', 'Вознаграждение', 'Доход ЦО', 'Доход города'];
-    rows.push(['Итого', fmt(sum(banks.map(p => p.count)), 0), rub(s.total.fee), rub(s.total.centralIncome), rub(s.total.cityIncome)]);
+    const rows = banks.map(p => [`${p.bank} · ${p.type}`, fmt(p.count, 0), rub(p.fee), rub(p.centralIncome), rub(p.cityIncome),rub(p.averageFee),rub(p.averageCityIncome)]);
+    const headers = ['Банк и продукт', 'Операций', 'Вознаграждение', 'Доход ЦО', 'Доход города','Ср. вознаграждение / операция','Ср. доход города / операция'];
+    rows.push(['Итого', fmt(sum(banks.map(p => p.count)), 0), rub(s.total.fee), rub(s.total.centralIncome), rub(s.total.cityIncome),rub(s.total.averageFee),rub(s.total.averageCityIncome)]);
     exports.banks = [headers, ...rows];
     document.getElementById('bankDetails').innerHTML = `${controls('bank')}<div class="panel"><h3>Фактические комиссии — ${html(scope(filters))}</h3>
-      <p class="panel-note">Источник — «АКК Data»: F — вознаграждение, I — доход ЦО, J — доход города. Пропуск дохода ЦО не приравнивается к нулю. Продукты одного банка показаны отдельно.</p>${table(headers, rows)}<button class="reset" data-export="banks">Скачать CSV</button></div>`;
+      <p class="panel-note">Источник — «АКК Data»: F — вознаграждение, I — доход ЦО, J — доход города. Пропуск дохода ЦО не приравнивается к нулю. Продукты одного банка показаны отдельно. Средний доход = доход / количество операций из того же реестра и периода. Число уникальных сделок без ID не определено.</p>${table(headers, rows)}<button class="reset" data-export="banks">Скачать CSV</button></div>`;
   }
   function renderNominal() {
     const directory = new Map(analytics.directory.map(c => [key(c.city), c]));
