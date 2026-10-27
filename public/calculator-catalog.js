@@ -37,7 +37,10 @@ function mount(root){
     const tbankGrossField=all[0].querySelector('.caGross');
     if(annualRate!==null&&Number.isFinite(tbankGross)){
       tbankGrossField.value=tbankGross.toFixed(2);tbankGrossField.disabled=true;
-    }else tbankGrossField.disabled=false;
+    }else{
+      if(tbankGrossField.disabled)tbankGrossField.value='';
+      tbankGrossField.disabled=false;
+    }
     const options=all.map((tr,i)=>{
       const grossText=tr.querySelector('.caGross').value;
       const coText=tr.querySelector('.caCo').value;
