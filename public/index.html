@@ -1632,7 +1632,7 @@ function heatPlanTarget(city, metric, label) {
   const plans=window.BI2UnifiedPlans;
   if (!Array.isArray(plans)) return null;
   const month=monthKeyFromLabel(label);
-  const cityId=BI2Model.key(city);
+  const cityId=BI2Insights.key(city);
   const match=plans.find(p=>p.cityKey===cityId && p.metric===metric && p.month===month && p.method==='summary');
   return match && typeof match.targetPct==='number' && match.targetPct>0 ? match.targetPct : null;
 }
