@@ -85,6 +85,8 @@ function bind(){
       rows=out.rows;page=0;filter={...filter,period:'all',city:'',rop:'',mop:'',search:''};
       status='Загружено '+num(rows.length)+' из '+num(out.sourceCount)+' строк; отклонено '+num(out.rejectedCount)+
         (out.rejectedCount?' (например: '+out.rejectedLines.slice(0,8).join(', ')+')':'')+'. Данные остались в браузере.';
+      if(rows.some(x=>x.cash)&&rows.filter(x=>x.cash).every(x=>x.product))
+        status+=' Проверьте, что выгрузка включает сделки БЕЗ доппродуктов — иначе знаменатель проникновения будет неполным.';
       E('rlPeriod').innerHTML=periodsFromRows(rows).map(p=>'<option value="'+esc(p)+'">'+(p==='all'?'Всё время':p.length===4?p+' год':new Date(p+'-01T12:00:00').toLocaleDateString('ru-RU',{month:'long',year:'numeric'}))+'</option>').join('');
       E('rlCity').innerHTML=opts(choose('city'),'Все города');E('rlRop').innerHTML=opts(choose('rop'),'Все РОП');E('rlMop').innerHTML=opts(choose('mop'),'Все МОП');
       for(const id of ['rlSearch','rlCity','rlRop','rlMop'])E(id).value='';
