@@ -448,6 +448,12 @@
 
       <!-- OVERVIEW -->
       <section class="tabpage active" id="tab-overview">
+        <div class="source-status" style="margin-bottom:16px;">
+          <strong>Основа Карты онлайн — два контрольных листа.</strong>
+          <a class="unified-link" href="https://docs.google.com/spreadsheets/d/1dkA1CUyrYh5qd2MmeLJ2qzXcqMTHVGDIX0S8mZQ7JMs/edit?gid=559499648" target="_blank" rel="noopener noreferrer">«Свод ЭР+АКК (копия) (копия)»</a>
+          и <a class="unified-link" href="https://docs.google.com/spreadsheets/d/1dkA1CUyrYh5qd2MmeLJ2qzXcqMTHVGDIX0S8mZQ7JMs/edit?gid=943090579" target="_blank" rel="noopener noreferrer">«Свод по городу NEW»</a>.
+          Исходные и NEW-методики не смешиваются; сравнение городов использует показатели исходных сводов.
+        </div>
         <div class="panel" style="padding:14px 18px;">
           <div style="display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end;">
             <div>
@@ -1639,13 +1645,13 @@ function heatCellStyle(value,city,month,metric,mode) {
     percent=value/target*100;
   }
   // For ДомКлик lower competitor penetration is better.
-  const heatValue=mode==='rate' && metric==='domklik' ? 100-percent : percent;
-  const greenThreshold=mode==='plan'?100:60;
-  const yellowThreshold=mode==='plan'?80:30;
-  const color=heatValue>=greenThreshold?'#B4DEC2':heatValue>=yellowThreshold?'#F6E4AB':'#EDB9B5';
+  const competitor=mode==='rate' && metric==='domklik';
+  const green=competitor?percent<30:percent>=(mode==='plan'?100:60);
+  const yellow=competitor?percent<60:percent>=(mode==='plan'?80:30);
+  const color=green?'#B4DEC2':yellow?'#F6E4AB':'#EDB9B5';
   return {color,fill:Math.max(4,Math.min(100,Math.max(0,mode==='plan'?percent:value))),title:mode==='plan'?'Выполнение плана: '+percent.toFixed(1)+'%':'Проникновение: '+value.toFixed(1)+'%'};
 }
-let sortKey='last', sortDir=-1;
+let sortKey='grade', sortDir=-1;
 function renderHeatTable(){
   const metric=document.getElementById('analysisMetric').value;
   const indexes=MONTHS.map((_,i)=>i).slice(state.rangeStart,state.rangeEnd+1),lastIdx=state.rangeEnd,firstIdx=state.rangeStart;
