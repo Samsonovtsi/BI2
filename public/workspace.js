@@ -150,21 +150,65 @@ function setupProductFilters(root){
 }
 function setupHeatLegend(){
   const heat=document.getElementById('heatTable');if(!heat)return;
+  const grades=['A++','A+','A','B','C','D','E'];
+  const targets=new Map();
+  let mode='fact';
   const box=document.createElement('div');box.className='workspace-heat-legend';
-  box.innerHTML='<b>Цветовые зоны проникновения</b><span class="heat-pill heat-red">менее 30% — красный</span><span class="heat-pill heat-yellow">30–59,9% — жёлтый</span><span class="heat-pill heat-green">60% и выше — зелёный</span><small>Пороги демонстрационные, не утверждённые планы грейдов. ДомКлик оценивается в обратном направлении.</small>';
+  box.innerHTML=[
+    '<div class="workspace-heat-head"><b>Тепловая карта: цветовая шкала</b>',
+    '<label>Окраска<select id="heatColorMode"><option value="fact">Факт проникновения</option><option value="plan">Выполнение плана грейда</option></select></label></div>',
+    '<div class="workspace-heat-colors"><span class="heat-pill heat-red" id="heatRed">менее 30% — красный</span><span class="heat-pill heat-yellow" id="heatYellow">30–59,9% — жёлтый</span><span class="heat-pill heat-green" id="heatGreen">от 60% — зелёный</span></div>',
+    '<div id="heatGradeEditor" class="workspace-grade-editor" hidden><strong>Планы проникновения по грейду города, %</strong>',
+    grades.map(g=>'<label>'+g+'<input type="number" min="1" max="300" step="0.1" placeholder="не задан" data-heat-grade="'+g+'" aria-label="План грейда '+g+'"></label>').join(''),
+    '</div><small id="heatLegendDescription">Демонстрационные пороги факта, не утверждённые корпоративные планы. Для ДомКлик меньше — лучше.</small>'
+  ].join('');
   heat.closest('.panel').insertBefore(box,heat.closest('.table-wrap'));
-  const body=document.getElementById('heatBody');
+  const body=document.getElementById('heatBody'),select=box.querySelector('#heatColorMode'),editor=box.querySelector('#heatGradeEditor');
+  const metric=()=>document.getElementById('analysisMetric').value;
+  const refreshEditor=()=>{
+    const m=metric(),isPlan=mode==='plan';
+    editor.hidden=!isPlan||m==='domklik';
+    const blocked=m==='domklik';
+    if(blocked&&isPlan){mode='fact';select.value='fact';editor.hidden=true;}
+    box.querySelector('#heatRed').textContent=mode==='plan'?'менее 80% плана — красный':'менее 30% — красный';
+    box.querySelector('#heatYellow').textContent=mode==='plan'?'80–99,9% плана — жёлтый':'30–59,9% — жёлтый';
+    box.querySelector('#heatGreen').textContent=mode==='plan'?'от 100% плана — зелёный':'от 60% — зелёный';
+    box.querySelector('#heatLegendDescription').textContent=mode==='plan'
+      ?'Планы по грейдам задаются здесь как сценарий в текущей вкладке. Пустой план = нет цветовой оценки. Не сохраняется на сервер.'
+      :'Демонстрационные пороги факта. Для ДомКлик направление цвета обратное; расчёт выполнения плана доступен только для ЭР и АКК.';
+    editor.querySelectorAll('[data-heat-grade]').forEach(input=>input.value=targets.get(m+'|'+input.dataset.heatGrade)||'');
+  };
   const paint=()=>{
-    const inverse=document.getElementById('analysisMetric').value==='domklik';
-    for(const cell of body.querySelectorAll('.pct-cell')){
-      const label=cell.querySelector('.pct-val')?.textContent||'';
-      const v=Number(label.replace('%','').replace(',','.'));
-      if(!Number.isFinite(v)||label==='—'){cell.removeAttribute('data-grade-zone');continue;}
-      cell.dataset.gradeZone=v<30?(inverse?'green':'red'):v<60?'yellow':(inverse?'red':'green');
+    const m=metric(),inverse=m==='domklik';
+    for(const row of body.rows){
+      const grade=row.cells[2]?.textContent.trim()||'';
+      const target=targets.get(m+'|'+grade);
+      for(const cell of row.querySelectorAll('.pct-cell')){
+        const label=cell.querySelector('.pct-val')?.textContent||'';
+        const v=Number(label.replace('%','').replace(',','.'));
+        if(label==='—'||!Number.isFinite(v)){cell.dataset.gradeZone='unknown';cell.title='Нет исходного процента';continue;}
+        if(mode==='plan'&&!inverse){
+          if(!(target>0)){cell.dataset.gradeZone='unknown';cell.title='Нет плана по грейду '+grade;continue;}
+          const attainment=v/target*100;
+          cell.dataset.gradeZone=attainment<80?'red':attainment<100?'yellow':'green';
+          cell.title='Факт '+v+'%, план '+target+'%, выполнение '+attainment.toFixed(1)+'%';
+        }else{
+          cell.dataset.gradeZone=v<30?(inverse?'green':'red'):v<60?'yellow':(inverse?'red':'green');
+          cell.title='Фактическое проникновение '+v+'%; пороги демонстрационные';
+        }
+      }
     }
   };
+  select.addEventListener('change',()=>{mode=select.value;refreshEditor();paint();});
+  editor.addEventListener('input',event=>{
+    const grade=event.target.dataset.heatGrade;if(!grade)return;
+    const v=Number(event.target.value),key=metric()+'|'+grade;
+    if(event.target.value&&Number.isFinite(v)&&v>0&&v<=300)targets.set(key,v);
+    else targets.delete(key);
+    paint();
+  });
+  document.getElementById('analysisMetric').addEventListener('change',()=>{refreshEditor();paint();});
   new MutationObserver(paint).observe(body,{childList:true});
-  document.getElementById('analysisMetric').addEventListener('change',paint);
-  paint();
+  refreshEditor();paint();
 }
 mount();
