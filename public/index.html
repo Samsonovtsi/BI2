@@ -346,6 +346,7 @@
   }
 </style>
 <link rel="stylesheet" href="/analytics.css">
+<link rel="stylesheet" href="/unified.css">
 </head>
 <body>
 <div class="app">
@@ -353,22 +354,13 @@
   <aside class="sidebar">
     <div class="brand">
       <div class="kicker">ЭТАЖИ · ИНСАЙТ</div>
-      <h1>ЭР и АКК</h1>
+      <h1>Этажи.Инсайт</h1>
       <div class="sub">Аналитика по допсервисам</div>
     </div>
-    <nav id="nav">
-      <div class="navlink active" data-tab="overview"><span class="dot"></span><span class="lbl">Обзор</span></div>
-      <div class="navlink" data-tab="analytics"><span class="dot"></span><span class="lbl">Аналитика</span></div>
-      <div class="navlink" data-tab="traffic"><span class="dot"></span><span class="lbl">Светофор</span></div>
-      <div class="navlink" data-tab="calc"><span class="dot"></span><span class="lbl">Калькулятор</span></div>
-      <div class="navlink" data-tab="reports"><span class="dot"></span><span class="lbl">Отчёты</span></div>
-      <div class="navlink" data-tab="city"><span class="dot"></span><span class="lbl">Карточка города</span></div>
-      <div class="navlink" data-tab="banks"><span class="dot"></span><span class="lbl">Банки и комиссии</span></div>
-      <div class="navlink" data-tab="nominal"><span class="dot"></span><span class="lbl">Номинальные счета</span></div>
-      <div class="navlink" data-tab="sources"><span class="dot"></span><span class="lbl">Источники и проверки</span></div>
-      <div class="navlink" data-tab="cosmos"><span class="dot"></span><span class="lbl">Космос и сверка</span></div>
-      <div class="navlink" data-tab="plans"><span class="dot"></span><span class="lbl">Планы городов</span></div>
-      <div class="navlink" data-tab="quality"><span class="dot"></span><span class="lbl">Отклонения и срезы</span></div>
+    <nav id="nav" aria-label="Три раздела Этажи.Инсайт">
+      <div class="navlink active" data-tab="overview" data-area="map"><span class="dot"></span><span class="lbl">Карта онлайн</span></div>
+      <div class="navlink" data-tab="realtors" data-area="realtors"><span class="dot"></span><span class="lbl">Светофор риелторов</span></div>
+      <div class="navlink" data-tab="calc" data-area="calc"><span class="dot"></span><span class="lbl">Калькулятор АКК</span></div>
     </nav>
     <div class="sidebar-foot">
       <div><b>Источники:</b> Google Sheets «Карта онлайн (ЭР, Аккредитивы)» и «Калькулятор по аккредитивам Голендухина»</div>
@@ -379,8 +371,8 @@
   <div class="main">
     <div class="topbar">
       <div>
-        <h2 id="pageTitle">Обзор</h2>
-        <div class="desc" id="pageDesc">Проникновение электронной регистрации (ЭР) по сети, ФиФ и городам</div>
+        <h2 id="pageTitle">Карта онлайн</h2>
+        <div class="desc" id="pageDesc">Обзор показателей ЭР и АКК</div>
       </div>
       <div class="fresh-wrap">
         <div class="freshness" id="freshBadge"><span class="pulse"></span> <span id="freshText">загрузка данных…</span></div>
@@ -439,9 +431,19 @@
         <label>Город</label>
         <select id="fCity"><option value="">Все города</option></select>
       </div>
+      <div class="field" title="Подключается после получения истории оргструктуры и ID сотрудников">
+        <label>РОП</label><select id="fRop" disabled aria-label="РОП: требуется связь с CRM"><option>Источник CRM не подключён</option></select>
+      </div>
+      <div class="field" title="Подключается после получения истории оргструктуры и ID сотрудников">
+        <label>МОП</label><select id="fMop" disabled aria-label="МОП: требуется связь с CRM"><option>Источник CRM не подключён</option></select>
+      </div>
       <button class="reset" id="resetFilters">Сбросить фильтры</button>
     </div>
 
+    <div class="area-subnav-bar">
+      <span class="area-subnav-title">В разделе</span>
+      <div class="area-subnav" id="sectionSubnav" aria-label="Подразделы"></div>
+    </div>
     <div class="content">
 
       <!-- OVERVIEW -->
@@ -537,11 +539,11 @@
         </div>
       </section>
 
-      <!-- TRAFFIC LIGHT -->
+      <!-- TRAFFIC LIGHT: CITY-LEVEL VIEW BELONGS TO ONLINE MAP -->
       <section class="tabpage" id="tab-traffic">
         <div class="panel details-controls"><label>Показатель <select id="trafficMetric"><option value="er">ЭР</option><option value="akk">АКК</option><option value="domklik">ДомКлик</option></select></label></div>
         <div class="callout">
-          <b>Черновой прототип.</b> Пороги ниже — демонстрационные пороги для ЭР/АКК (&lt;30% красный · 30–60% жёлтый · ≥60% зелёный). Для доли ДомКлик направление обратное. Это светофор городов, персональная оценка риелторов требует отдельной детализации.
+          <b>Светофор городов (не рейтинг риелторов).</b> Пороги ниже — демонстрационные пороги для ЭР/АКК (&lt;30% красный · 30–60% жёлтый · ≥60% зелёный). Для доли ДомКлик направление обратное. Это светофор городов, персональная оценка риелторов требует отдельной детализации.
           Финальную логику нужно перенести из ТЗ «Светофор риелторов» (<span class="num">ecosystem.etagi.com/trafficLight</span>).
         </div>
         <div class="tabs-mini">
@@ -551,6 +553,63 @@
           <button class="tab-mini-btn" data-tl="green">Только зелёные</button>
         </div>
         <div class="tl-grid" id="tlGrid"></div>
+      </section>
+
+      <!-- REALTOR TRAFFIC LIGHT: source-aware employee page -->
+      <section class="tabpage" id="tab-realtors">
+        <div class="panel">
+          <div class="unified-head">
+            <div><h3>Светофор риелторов</h3>
+              <p>Рейтинг сотрудников по уникальным сделкам с ЭР, АКК и НС; комиссии и персональные рекорды.</p></div>
+            <div><a class="unified-link" href="https://docs.google.com/document/d/1yQlVdJuMKvRsxfkYh9VZrvpSheFHK6pbg4Pn_getSu0/edit" target="_blank" rel="noopener noreferrer">ТЗ Светофора</a> · <a class="unified-link" href="https://ecosystem.etagi.com/trafficLight" target="_blank" rel="noopener noreferrer">Прототип</a></div>
+          </div>
+          <div class="unified-filters">
+            <div class="field"><label>Продукты (можно выбрать несколько)</label>
+              <div class="product-checks" id="realtorProducts">
+                <label><input type="checkbox" data-product="ЭР" checked> ЭР</label>
+                <label><input type="checkbox" data-product="АКК" checked> АКК</label>
+                <label><input type="checkbox" data-product="НС" checked> НС</label>
+              </div>
+            </div>
+            <div class="field"><label for="realtorPeriod">Период</label>
+              <select id="realtorPeriod" disabled title="История сотрудников ещё не подключена">
+                <option>Все время / год / месяц — после подключения данных</option>
+              </select></div>
+            <div class="field" style="flex:1"><label for="realtorSearch">Поиск по ФИО, партнёру, старшему партнёру</label>
+              <input id="realtorSearch" type="search" placeholder="Найти сотрудника"></div>
+          </div>
+          <div class="source-status" role="status">
+            <strong>Нет подключённой связки «сделка — сотрудник — продукт — комиссия».</strong>
+            <div id="realtorSelectedProducts" style="margin-top:6px"></div>
+            <div id="realtorSearchNote" style="margin-top:6px">Для поиска необходима связанная выгрузка сотрудников.</div>
+            Пока эти данные отсутствуют, рейтинг и рекорды не заполняются искусственными значениями из сводов городов.
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="panel">
+            <h3>Рекорды компании</h3><p class="panel-note">Период: всё время / год / месяц; продуктовые переключатели меняют состав рекордов.</p>
+            <div class="kpis" style="grid-template-columns:repeat(2,minmax(0,1fr));margin:12px 0 0">
+              <div class="kpi"><div class="lbl">Максимальная комиссия ЭР + АКК + НС</div><div class="val">—</div></div>
+              <div class="kpi"><div class="lbl">Максимальное количество ЭР</div><div class="val">—</div></div>
+              <div class="kpi"><div class="lbl">Максимальная комиссия за сделку НС</div><div class="val">—</div></div>
+              <div class="kpi"><div class="lbl">Максимальная комиссия НС + АКК</div><div class="val">—</div></div>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>Методика конверсии</h3>
+            <p><strong>Числитель:</strong> количество уникальных подходящих сделок сотрудника хотя бы с одним выбранным продуктом.</p>
+            <p><strong>Знаменатель:</strong> количество подходящих сделок сотрудника за тот же период.</p>
+            <p class="panel-note">В ТЗ формула записана в обратном порядке относительно текстового определения. До утверждения паспорта метрики система не подменяет показатель. При нескольких продуктах одна сделка считается один раз, через ID сделки.</p>
+            <div class="unified-steps"><span>Сделка</span><span>Сотрудник / РОП / МОП</span><span>Продукты</span><span>Комиссия</span></div>
+          </div>
+        </div>
+        <div class="panel"><h3>Рейтинг сотрудников</h3>
+          <div class="table-wrap"><table class="unified-table"><thead><tr>
+            <th>Место</th><th>ФИО</th><th>Город</th><th>Стаж</th><th>Уникальные сделки с продуктами</th><th>Конверсия</th><th>Рекорд КВ за месяц</th>
+          </tr></thead><tbody><tr><td colspan="7" style="text-align:center;padding:28px 12px;font-family:'Manrope',sans-serif">
+            Нет первичной связанной выгрузки по сотрудникам. Подключите CRM/BI с ID сделки, ID сотрудника и историей оргструктуры.
+          </td></tr></tbody></table></div>
+        </div>
       </section>
 
       <!-- CALCULATOR -->
@@ -643,6 +702,33 @@
           <h3>Воронка «правильного выбора» — итого</h3>
           <div class="panel-note">Сделка с наличкой → факт. проведённый АКК → лучший возможный АКК (по оптимальному банку на чек) → упущенная выгода</div>
           <div class="funnel" id="funnel"></div>
+        </div>
+      </section>
+
+      <!-- PROTECTED TRANSACTION-LEVEL AND TARIFF WORK AREAS -->
+      <section class="tabpage" id="tab-calc-deals">
+        <div class="panel">
+          <div class="unified-head"><div>
+            <h3>Детализация «правильного выбора» по сделкам</h3>
+            <p>Сумма и срок АКК, выбранный банк, фактическая КВ, допустимые альтернативы и упущенная выгода.</p>
+          </div><a class="unified-link" target="_blank" rel="noopener noreferrer" href="https://docs.google.com/spreadsheets/d/1es-6KsSYuDKYCfusMtFwFQCqQWnI7-WdhnOO-LTNkz8/edit?gid=489943861">Лист «Детализация по сделкам»</a></div>
+          <div class="source-status"><strong>Разрез по сделке ещё не импортируется в BI2.</strong>
+            В существующем калькуляторе перенесены итоговые группы чеков, но не индивидуальные расчёты.
+            Для интеграции необходимы ID услуги и сделки, даты, банк, сумма, срок, валидность альтернативных банков, применённая ставка и версия тарифа.
+            ФИО клиента не используется как ключ сопоставления с CRM.</div>
+          <div class="unified-steps"><span>Сделка и срок</span><span>Фактическая КВ</span><span>КВ допустимых банков</span><span>Оптимальный банк</span><span>Разница, ₽</span></div>
+        </div>
+      </section>
+      <section class="tabpage" id="tab-calc-rates">
+        <div class="panel">
+          <div class="unified-head"><div>
+            <h3>Справочники тарифов и удержаний</h3>
+            <p>Банковская КВ, доля города, процент удержания ЦО, сроки действия тарифов.</p>
+          </div><a class="unified-link" href="https://docs.google.com/spreadsheets/d/1es-6KsSYuDKYCfusMtFwFQCqQWnI7-WdhnOO-LTNkz8/edit?gid=802839738" target="_blank" rel="noopener noreferrer">Матрицы выплат</a></div>
+          <div class="source-status"><strong>Редактирование тарифов на сайте пока не включено.</strong>
+            Источник содержит отдельные листы «Матрицы выплат» и «Базовые % города». Для безопасного переноса нужны права администратора, версионирование тарифов по датам действия, журнал изменений, проверка ограничений банка и тест сверки с Google-калькулятором.
+            Подмена тарифов не должна пересчитывать прошлые закрытые периоды.</div>
+          <p class="unified-note"><a class="unified-link" href="https://docs.google.com/spreadsheets/d/1es-6KsSYuDKYCfusMtFwFQCqQWnI7-WdhnOO-LTNkz8/edit?gid=2002467773" target="_blank" rel="noopener noreferrer">Открыть «Базовые % города»</a> · Доступ к редактированию исходного Google-файла регулируется его владельцем.</p>
         </div>
       </section>
 
@@ -1942,7 +2028,10 @@ const titles = {
   quality:['Отклонения и срезы','Сигналы качества и история зафиксированных значений'],
   overview:['Обзор','Проникновение электронной регистрации (ЭР) по сети, ФиФ и городам'],
   analytics:['Аналитика','Сравнение города с лучшей / худшей практикой и полная таблица по городам'],
-  traffic:['Светофор','Статус городов по уровню проникновения ЭР — прототип пороговой модели'],
+  traffic:['Светофор городов','Уровень проникновения по городам — не персональный рейтинг'],
+  realtors:['Светофор риелторов','Персональный рейтинг ЭР, АКК и НС после подключения CRM/BI'],
+  'calc-deals':['Калькулятор АКК — сделки','Правильный выбор банка в разрезе сделок'],
+  'calc-rates':['Калькулятор АКК — тарифы','Матрицы выплат и удержания ЦО'],
   calc:['Калькулятор','Расчёт упущенной выгоды по АКК — воронка правильного выбора'],
   city:['Карточка города','Количества, расчётные базы, проценты и фактические комиссии'],
   banks:['Банки и комиссии','Все продукты из исходного реестра, доход ЦО и города'],
@@ -1966,6 +2055,7 @@ document.querySelectorAll('.navlink').forEach(link=>{
 
 init();
 </script>
+<script src="/unified.js"></script>
 </body>
 </html>
 
