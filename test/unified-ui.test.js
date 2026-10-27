@@ -8,7 +8,7 @@ const unified=readFileSync(new URL('../public/unified.js', import.meta.url),'utf
 const css=readFileSync(new URL('../public/unified.css', import.meta.url),'utf8');
 
 test('three primary product areas with all original pages kept',()=>{
-  const nav=html.match(/<nav id="nav"[\\s\\S]*?<\\/nav>/)?.[0]||'';
+  const nav=html.slice(html.indexOf('<nav id="nav"'),html.indexOf('</nav>')+6);
   const areas=[...nav.matchAll(/data-area="([^"]+)"/g)].map(m=>m[1]);
   assert.deepEqual(areas,['map','realtors','calc']);
   for(const id of ['overview','analytics','city','banks','nominal','traffic','plans','reports','cosmos','quality','sources','realtors','calc','calc-deals','calc-rates'])
@@ -35,7 +35,7 @@ test('realtor and tariff screens are honest about missing primary data',()=>{
 
 test('client script syntax is valid',()=>{
   new Script(unified);
-  const inline=[...html.matchAll(/<script>([\\s\\S]*?)<\\/script>/g)].map(m=>m[1]);
+  const inline=html.split('<script>').slice(1).map(part=>part.split('</script>')[0]);
   assert.equal(inline.length,1);
   new Script(inline[0]);
 });
