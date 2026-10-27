@@ -41,10 +41,11 @@ export function readCsv(csv) {
 }
 function dateISO(value) {
   const s=String(value??'').trim();
-  if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
   const m=s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-  if(m)return m[3]+'-'+m[2]+'-'+m[1];
-  return '';
+  const candidate=/^\d{4}-\d{2}-\d{2}$/.test(s)?s:m?m[3]+'-'+m[2]+'-'+m[1]:'';
+  if(!candidate)return '';
+  const dt=new Date(candidate+'T00:00:00Z');
+  return Number.isFinite(dt.getTime())&&dt.toISOString().slice(0,10)===candidate?candidate:'';
 }
 function number(value) {
   if(typeof value==='number')return value;
@@ -156,9 +157,12 @@ export function aggregateRealtors(rows,filters={}) {
   const biggest=(set,selector)=>set.length?set.reduce((a,b)=>selector(b)>selector(a)?b:a):null;
   const productLeader=p=>biggest(list,x=>x.productCounts[p]);
   const dealCommissionFor=(codes)=>{
-    const sums=new Map();
+    const sums=new Map(),seen=new Set();
     for(const r of scope){
       if(!codes.has(r.product))continue;
+      const feeId=r.commissionId?r.employeeId+'|'+r.commissionId:null;
+      if(feeId&&seen.has(feeId))continue;
+      if(feeId)seen.add(feeId);
       const key=r.employeeId+'|'+r.dealId;
       sums.set(key,(sums.get(key)||0)+r.fee);
     }
@@ -180,8 +184,14 @@ export function aggregateRealtors(rows,filters={}) {
   };
 }
 function aggregateRealtorsCore(rows,chosen) {
-  const fees=new Map();
-  for(const r of rows){if(!chosen.has(r.product))continue;fees.set(r.employeeId,(fees.get(r.employeeId)||0)+r.fee);}
+  const fees=new Map(),seen=new Set();
+  for(const r of rows){
+    if(!chosen.has(r.product))continue;
+    const feeId=r.commissionId?r.employeeId+'|'+r.commissionId:null;
+    if(feeId&&seen.has(feeId))continue;
+    if(feeId)seen.add(feeId);
+    fees.set(r.employeeId,(fees.get(r.employeeId)||0)+r.fee);
+  }
   return [...fees].map(([id,fee])=>({id,fees:fee}));
 }
 export function hierarchyByOrganisation(rows,filters={}) {
