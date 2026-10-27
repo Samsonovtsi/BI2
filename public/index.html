@@ -526,8 +526,18 @@
         </div>
 
         <div class="panel">
-          <h3>Тепловая карта проникновения по городам</h3>
-          <div class="panel-note">Кликните заголовок столбца для сортировки. Показатель выбирается выше. Пустые значения остаются в конце списка.</div>
+          <h3>Тепловая карта проникновения и выполнения планов</h3>
+          <div class="panel-note">Сортировка по грейду вала, городу и показателям. Отдельный режим показывает выполнение персонального плана города без изменения исходных процентов.</div>
+          <div class="heat-toolbar">
+            <label for="heatMode">Цвет ячеек
+              <select id="heatMode">
+                <option value="rate">Процент проникновения</option>
+                <option value="plan">Процент выполнения плана города</option>
+              </select>
+            </label>
+            <div class="heat-legend" id="heatLegend"></div>
+          </div>
+          <p class="heat-note" id="heatNote">Окраска проникновения — демонстрационные пороги; утверждённые грейды и персональные цели задаются отдельно.</p>
           <div class="table-wrap">
             <table id="heatTable">
               <thead>
@@ -1611,6 +1621,30 @@ function renderCompare(){
   document.getElementById('compareChart').innerHTML=svgLine(760,260,series,{labels:take(MONTHS),band:[take(best),take(worst)]})+
     `<p class="panel-note">${METRIC_META[metric].label}. Городов в группе: ${peers.length}. Для ДомКлик меньшая доля конкурента соответствует лучшему результату.</p>`;
 }
+const VOLUME_GRADE_RANK = {'A++':7, 'A+':6, A:5, B:4, C:3, D:2, E:1};
+function heatPlanTarget(city, metric, label) {
+  const plans=window.BI2UnifiedPlans;
+  if (!Array.isArray(plans)) return null;
+  const month=monthKeyFromLabel(label);
+  const cityId=BI2Model.key(city);
+  const match=plans.find(p=>p.cityKey===cityId && p.metric===metric && p.month===month && p.method==='summary');
+  return match && typeof match.targetPct==='number' && match.targetPct>0 ? match.targetPct : null;
+}
+function heatCellStyle(value,city,month,metric,mode) {
+  if (value==null || !Number.isFinite(value)) return {color:'#E8ECE9',fill:0,title:'Нет данных'};
+  let percent=value;
+  if (mode==='plan') {
+    const target=heatPlanTarget(city,metric,month);
+    if (target==null) return {color:'#E8ECE9',fill:0,title:'План не задан по методике исходного свода'};
+    percent=value/target*100;
+  }
+  // For ДомКлик lower competitor penetration is better.
+  const heatValue=mode==='rate' && metric==='domklik' ? 100-percent : percent;
+  const greenThreshold=mode==='plan'?100:60;
+  const yellowThreshold=mode==='plan'?80:30;
+  const color=heatValue>=greenThreshold?'#B4DEC2':heatValue>=yellowThreshold?'#F6E4AB':'#EDB9B5';
+  return {color,fill:Math.max(4,Math.min(100,Math.max(0,mode==='plan'?percent:value))),title:mode==='plan'?'Выполнение плана: '+percent.toFixed(1)+'%':'Проникновение: '+value.toFixed(1)+'%'};
+}
 let sortKey='last', sortDir=-1;
 function renderHeatTable(){
   const metric=document.getElementById('analysisMetric').value;
@@ -1618,12 +1652,32 @@ function renderHeatTable(){
   const head=document.getElementById('heatHeadRow');
   head.innerHTML=`<th data-key="city">Город</th><th data-key="cat">ФиФ</th><th data-key="grade">Грейд</th>${indexes.map(i=>`<th data-key="${i}">${MONTHS[i]}</th>`).join('')}<th data-key="delta">Δ период</th>`;
   head.querySelectorAll('th').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.key;if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=-1;}renderHeatTable();}));
+  const mode=document.getElementById('heatMode').value;
+  document.getElementById('heatLegend').innerHTML=mode==='plan'
+    ? '<span><i style="background:#EDB9B5"></i>менее 80% плана</span><span><i style="background:#F6E4AB"></i>80–99,9% плана</span><span><i style="background:#B4DEC2"></i>100% и более</span><span><i style="background:#E8ECE9"></i>план отсутствует</span>'
+    : '<span><i style="background:#EDB9B5"></i>менее 30%</span><span><i style="background:#F6E4AB"></i>30–59,9%</span><span><i style="background:#B4DEC2"></i>60% и более</span>';
+  document.getElementById('heatNote').textContent=mode==='plan'
+    ? 'Используются сохранённые планы городов по исходной методике; цвета — предварительные пороги до согласования с владельцем метрик. При плане 0% выполнение не определено.'
+    : 'Пороги цвета проникновения демонстрационные. Для ДомКлик меньшая доля конкурента считается лучшей.';
   const list=applyFilters(cityMetricRows(metric));
   const value=r=>sortKey==='delta'?(r.values[lastIdx]!=null&&r.values[firstIdx]!=null?r.values[lastIdx]-r.values[firstIdx]:null):r.values[sortKey==='last'?lastIdx:+sortKey];
-  list.sort((a,b)=>{if(['city','cat','grade'].includes(sortKey))return sortDir*String(a[sortKey]).localeCompare(String(b[sortKey]),'ru');const av=value(a),bv=value(b);if(av==null)return bv==null?0:1;if(bv==null)return -1;return sortDir*(av-bv);});
+  list.sort((a,b)=>{
+    if (sortKey==='grade') {
+      const x=VOLUME_GRADE_RANK[a.grade]||0,y=VOLUME_GRADE_RANK[b.grade]||0;
+      return x===y?(b.values[lastIdx]??-1)-(a.values[lastIdx]??-1):sortDir*(x-y);
+    }
+    if (['city','cat'].includes(sortKey)) return sortDir*String(a[sortKey]).localeCompare(String(b[sortKey]),'ru');
+    const av=value(a),bv=value(b);
+    if(av==null)return bv==null?0:1;
+    if(bv==null)return -1;
+    return sortDir*(av-bv);
+  });
   document.getElementById('heatBody').innerHTML=list.map(c=>{
     const delta=c.values[lastIdx]!=null&&c.values[firstIdx]!=null?c.values[lastIdx]-c.values[firstIdx]:null;
-    const cells=indexes.map(i=>{const v=c.values[i];return `<td class="pct-cell"><span class="pct-bar" style="width:${v==null?0:Math.max(0,Math.min(100,v/130*100))}%"></span><span class="pct-val">${v==null?'—':v.toFixed(1)+'%'}</span></td>`;}).join('');
+    const cells=indexes.map(i=>{
+      const v=c.values[i],style=heatCellStyle(v,c.city,MONTHS[i],metric,mode);
+      return `<td class="pct-cell" title="${escapeHtml(style.title)}"><span class="pct-bar" style="width:${style.fill}%;background:${style.color};"></span><span class="pct-val">${v==null?'—':v.toFixed(1)+'%'}</span></td>`;
+    }).join('');
     return `<tr><td class="city-cell">${escapeHtml(c.city)}</td><td>${escapeHtml(c.cat)}</td><td>${escapeHtml(c.grade)}</td>${cells}<td>${delta==null?'—':(delta>=0?'+':'')+delta.toFixed(1)+' п.п.'}</td></tr>`;
   }).join('');
 }
@@ -1983,6 +2037,7 @@ function renderAll(){
 /* ---------- EVENTS ---------- */
 for(const id of ['analysisMetric','analysisMode','analysisMinBase'])document.getElementById(id).addEventListener('change',()=>{renderCompare();renderHeatTable();});
 document.getElementById('trafficMetric').addEventListener('change',renderTraffic);
+document.getElementById('heatMode').addEventListener('change',renderHeatTable);
 
 document.getElementById('fPeriod').addEventListener('change', e=>{ state.period=+e.target.value; renderAll(); });
 document.getElementById('fCat').addEventListener('change', e=>{ state.cat=e.target.value; renderAll(); });
