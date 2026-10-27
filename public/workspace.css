@@ -23,6 +23,17 @@
 .workspace-heat-legend{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:14px 0;font-size:11px}
 .workspace-heat-legend b{margin-right:4px;color:#304e3d}
 .workspace-heat-legend small{color:#788179;flex-basis:100%}
+.workspace-heat-head{display:flex;align-items:center;justify-content:space-between;flex-basis:100%;gap:12px;flex-wrap:wrap}
+.workspace-heat-head label{display:flex;align-items:center;gap:7px;color:#6b7c6e;font-size:11px;font-weight:600}
+.workspace-heat-head select{border:1px solid #d4dfd6;background:#fff;border-radius:8px;padding:6px 8px;color:#34533f;font-size:11px}
+.workspace-heat-colors{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.workspace-grade-editor{display:flex;align-items:center;flex-basis:100%;flex-wrap:wrap;gap:9px;background:#f5f8f5;border:1px solid #dce8dd;padding:12px;border-radius:10px}
+.workspace-grade-editor[hidden]{display:none!important}
+.workspace-grade-editor strong{font-size:11px;flex-basis:100%}
+.workspace-grade-editor label{font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px}
+.workspace-grade-editor input{border:1px solid #d3e0d5;border-radius:7px;padding:5px;min-height:28px;width:72px}
+.pct-cell[data-grade-zone=unknown]{background:rgba(152,160,154,.09)}
+
 .heat-pill{display:inline-block;border-radius:14px;padding:5px 10px;border:1px solid transparent;font-weight:700}
 .heat-red{background:#fae8e7;color:#9a3334;border-color:#f0d0cf}
 .heat-yellow{background:#fff3d5;color:#8e6416;border-color:#f0dda3}
