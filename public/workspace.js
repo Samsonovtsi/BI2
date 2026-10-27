@@ -55,7 +55,7 @@ function navigate(group,tab,updateHash=true){
   document.getElementById('pageTitle').textContent=target.label;
   document.getElementById('pageDesc').textContent=target.description+' · '+target.tabs.find(t=>t[0]===tab)[1];
   const toolbar=document.getElementById('workspaceProductFilters');
-  if(toolbar)toolbar.hidden=!(group==='map'&&['analytics','traffic'].includes(tab));
+  if(toolbar)toolbar.hidden=!(group==='map'&&['overview','analytics','traffic'].includes(tab));
   if(updateHash){const next='#/'+group+'/'+tab;if(location.hash!==next)location.hash=next;}
 }
 function mount() {
@@ -121,6 +121,10 @@ function setupProductFilters(root){
     document.getElementById('analysisMetric').dispatchEvent(new Event('change',{bubbles:true}));
     document.getElementById('trafficMetric').value=current;
     document.getElementById('trafficMetric').dispatchEvent(new Event('change',{bubbles:true}));
+    const buttons=[...document.querySelectorAll('#metricToggle [data-metric]')];
+    const selected=buttons.find(b=>b.dataset.metric===current);
+    if(selected&&!selected.classList.contains('active'))selected.click();
+    for(const button of buttons)if(button!==selected&&button.classList.contains('active'))button.click();
   });
   hubs.forEach((h,i)=>root.querySelector('#'+h).addEventListener('change',e=>{
     const source=document.getElementById(keys[i]);source.value=e.target.value;
