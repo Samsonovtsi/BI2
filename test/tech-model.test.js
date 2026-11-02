@@ -52,7 +52,7 @@ test('missing month-specific CO share cannot be borrowed from another month',()=
   assert.equal(getCityShare(parseCentralOffice(shares),'Т-Банк','Тюмень','2026-10'),null);
 });
 test('no cash data => no penetration, missing registry => commission unknown',()=>{
-  const piv=[['meta'],['date','2026-09'],['city'],['Тюмень','','10']];
+  const piv=[['meta'],['City','Bank','Month','2026-09'],['City','Bank'],['Тюмень','Т-Банк','','10']];
   const bankPivots=Object.fromEntries(['ДомРФ','Т-Банк','Сбер','ВТБ','Совкомбанк'].map(k=>[k,piv]));
   const snapshot=buildTechSnapshot({
     cash:[['meta'],['head'],['2026-09','Тюмень','100']],
