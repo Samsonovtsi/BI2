@@ -50,7 +50,7 @@ app.get('/api/tech/data', async (req, res) => {
 // Quote only numeric transaction parameters. Calculations use dated Google tariff rules.
 app.post('/api/tech/quote', async (req, res) => {
   const {city,date,sum,days} = req.body||{};
-  if(typeof city!=='string'||city.length>120||typeof date!=='string'||!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||
+  if(typeof city!=='string'||city.length>120||typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date)||
       !Number.isFinite(Number(sum))||Number(sum)<=0||Number(sum)>1e10||
       !Number.isInteger(Number(days))||Number(days)<1||Number(days)>1000) {
     return res.status(400).json({error:'invalid_quote',message:'Проверьте город, дату, сумму и срок сделки.'});
