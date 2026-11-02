@@ -5,6 +5,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { getData, refreshData, startScheduler, applyUploadedWorkbook } from './lib/sheets.js';
 import { getPlans, savePlan, deletePlan, listSnapshots, getSnapshot } from './lib/operations.js';
+import { getTechData } from './lib/tech-source.js';
+import { calculateOptions } from './lib/tech-model.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -32,6 +34,35 @@ app.get('/api/snapshots', (req,res) => { try { res.json(listSnapshots()); } catc
 app.get('/api/snapshots/:id', (req,res) => {
   try { const snapshot=getSnapshot(req.params.id); if(!snapshot) return res.status(404).json({message:'Срез не найден'}); res.json(snapshot); }
   catch(e) { res.status(500).json({message:e.message}); }
+});
+
+// Independent read-only "techlist" data source. No personal names or raw register rows in JSON.
+app.get('/api/tech/data', async (req, res) => {
+  try {
+    const data = await getTechData();
+    const {matrix, shares, ...safe} = data;
+    res.set('Cache-Control','no-store');
+    res.json(safe);
+  } catch (e) {
+    res.status(503).json({error:'tech_source_unavailable',message:e.message});
+  }
+});
+// Quote only numeric transaction parameters. Calculations use dated Google tariff rules.
+app.post('/api/tech/quote', async (req, res) => {
+  const {city,date,sum,days} = req.body||{};
+  if(typeof city!=='string'||city.length>120||typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date)||
+      !Number.isFinite(Number(sum))||Number(sum)<=0||Number(sum)>1e10||
+      !Number.isInteger(Number(days))||Number(days)<1||Number(days)>1000) {
+    return res.status(400).json({error:'invalid_quote',message:'Проверьте город, дату, сумму и срок сделки.'});
+  }
+  try {
+    const data=await getTechData();
+    const options=calculateOptions({city,date,sum,days},data.matrix,data.shares);
+    res.set('Cache-Control','no-store');
+    res.json({options,generatedAt:data.generatedAt,stale:!!data.stale});
+  } catch(e) {
+    res.status(503).json({error:'quote_unavailable',message:e.message});
+  }
 });
 
 // Отдаёт закэшированные данные, при необходимости фоново обновляясь.

@@ -1,12 +1,13 @@
 import {mountRealtors} from './realtors.js';
 import {mountCalcCatalog} from './calculator-catalog.js';
+import {mountTechMap,mountTechCalculator} from './tech-ui.js';
 
 /* Новая навигация поверх исходных вкладок BI2. Старые вкладки и обработчики сохранены. */
 const sections={
   map:{
     label:'Карта онлайн',description:'Проникновение ЭР и АКК, города, банки, планы и контроль данных',
     tabs:[
-      ['overview','Обзор'],['analytics','Сравнение и тепловая карта'],['traffic','Светофор городов'],
+      ['tech-map','Карта по техлисту'],['overview','Обзор'],['analytics','Сравнение и тепловая карта'],['traffic','Светофор городов'],
       ['city','Карточка города'],['banks','Банки и доход'],['nominal','Номинальные счета'],
       ['plans','Планы'],['reports','Отчёты'],['cosmos','Космос и сверка'],
       ['quality','Отклонения'],['sources','Источники']
@@ -18,15 +19,15 @@ const sections={
   },
   calc:{
     label:'Калькулятор АКК',description:'Правильный выбор банка, расчёты КВ и удержания ЦО',
-    tabs:[['calc','Правильный выбор'],['calc-catalog','Каталоги ставок']]
+    tabs:[['tech-calc','Калькулятор по техлисту'],['calc','Правильный выбор'],['calc-catalog','Каталоги ставок']]
   }
 };
 const icons={map:'▥',realtor:'◉',calc:'∑'};
 const legacy=new Map();
-let activeGroup='map',activeTab='overview';
+let activeGroup='map',activeTab='tech-map';
 function parseHash(){
   const m=location.hash.match(/^#\/(map|realtor|calc)(?:\/([a-z-]+))?$/);
-  if(!m)return ['map','overview'];
+  if(!m)return ['map','tech-map'];
   const section=sections[m[1]],tab=m[2]||section.tabs[0][0];
   return [m[1],section.tabs.some(t=>t[0]===tab)?tab:section.tabs[0][0]];
 }
@@ -48,10 +49,13 @@ function navigate(group,tab,updateHash=true){
   const sub=document.getElementById('workspaceSubnav');
   sub.innerHTML=target.tabs.map(t=>'<button type="button" class="workspace-sub-link'+(tab===t[0]?' active':'')+'" data-worktab="'+t[0]+'">'+t[1]+'</button>').join('');
   sub.hidden=target.tabs.length<=1;
-  document.querySelector('.main>.filters').hidden=group!=='map';
-  document.getElementById('btnUpload').hidden=group!=='map';
-  document.getElementById('btnRefresh').hidden=group==='realtor';
-  document.getElementById('banner').hidden=group==='realtor';
+  const isTech=tab==='tech-map'||tab==='tech-calc';
+  document.querySelector('.main>.filters').hidden=group!=='map'||isTech;
+  document.getElementById('btnUpload').hidden=group!=='map'||isTech;
+  document.getElementById('btnRefresh').hidden=group==='realtor'||isTech;
+  document.getElementById('banner').hidden=group==='realtor'||isTech;
+  if(tab==='tech-map')mountTechMap(document.getElementById('tab-tech-map'));
+  if(tab==='tech-calc')mountTechCalculator(document.getElementById('tab-tech-calc'));
   document.getElementById('pageTitle').textContent=target.label;
   document.getElementById('pageDesc').textContent=target.description+' · '+target.tabs.find(t=>t[0]===tab)[1];
   const toolbar=document.getElementById('workspaceProductFilters');
@@ -70,7 +74,7 @@ function mount() {
   ).join('');
   old.insertBefore(buttons,storage);
   const content=document.querySelector('.content');
-  for(const id of ['realtors','calc-catalog']){
+  for(const id of ['realtors','calc-catalog','tech-map','tech-calc']){
     const section=document.createElement('section');section.className='tabpage';section.id='tab-'+id;content.appendChild(section);
   }
   mountRealtors(document.getElementById('tab-realtors'));
@@ -96,7 +100,7 @@ function mount() {
   });
   window.addEventListener('hashchange',()=>{const [g,t]=parseHash();if(g!==activeGroup||t!==activeTab)navigate(g,t,false);});
   const [initialGroup,initialTab]=parseHash();navigate(initialGroup,initialTab,false);
-  if(!location.hash)history.replaceState(null,'','#/map/overview');
+  if(!location.hash)history.replaceState(null,'','#/map/tech-map');
 }
 function setupProductFilters(root){
   root.innerHTML='<div class="workspace-filter-heading"><strong>Показатель</strong><span>Настройки периода, ФиФ и города сохраняются отдельно для каждого продукта в этой вкладке</span></div>'+
