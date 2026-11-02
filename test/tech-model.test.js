@@ -81,3 +81,26 @@ test('not present period does not become zero when sources have no coverage',()=
   assert.equal(october.er,null);
   assert.equal(october.akkPenetration,null);
 });
+
+test('raw confidential registry becomes aggregated commission and city income only',()=>{
+  const bankPivots=Object.fromEntries(['ДомРФ','Т-Банк','Сбер','ВТБ','Совкомбанк'].map(k=>[k,
+    [['meta'],['City','Bank','Month','2026-09'],['City','Bank'],['Тюмень',k,'','1']]]));
+  const registry=[
+    ['metadata'],['date','city','bank','account','client','commission','amount','days'],
+    ['2026-09-15','Тюмень','Т-Банк','ACCOUNT123','Клиент А','1000','5000000','5'],
+    ['2026-09-15','Тюмень','Сбер','ACCOUNT456','Клиент Б','3000','5000000','5'],
+    ['2026-09-15','Тюмень','домклик','home','home','0','0','0']
+  ];
+  const data=buildTechSnapshot({
+    cash:[['meta'],['header'],['2026-09','Тюмень','100']],
+    er:[['meta'],['City','Date','2026-09'],['City'],['Тюмень','','10']],
+    bankPivots,matrix,shares,registry
+  });
+  const r=data.rows.find(x=>x.city==='Тюмень');
+  assert.equal(r.commission,4000);
+  assert.equal(r.operations,2);
+  assert.equal(r.cityIncome,3360);
+  assert.equal(data.diagnostics.registryNotAKK,1);
+  assert.ok(!JSON.stringify(data).includes('Клиент А'));
+  assert.ok(!JSON.stringify(data).includes('ACCOUNT123'));
+});
