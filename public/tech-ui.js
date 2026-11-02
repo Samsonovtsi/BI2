@@ -21,9 +21,9 @@ const getData=async()=>{
 const block=(label,value,note)=>'<div class="rl-kpi"><span>'+esc(label)+'</span><b>'+esc(value)+'</b><small>'+esc(note||'')+'</small></div>';
 function summary(rows) {
   // Sum only when all requested city-month rows have a known denominator/metric.
-  const sum=key=>rows.length&&rows.every(r=>r[key]!=null)?rows.reduce((s,r)=>s+r[key],0):null;
-  const cash=sum('cash'),er=sum('er'),akk=sum('akk'),actual=sum('commission'),operations=sum('operations');
-  return {cash,er,akk,actual,operations,erPct:cash>0&&er!=null?er/cash*100:null,
+  const sum=key=>{const valid=rows.filter(r=>r[key]!=null);return valid.length?valid.reduce((total,r)=>total+r[key],0):null;};
+  const cash=sum('cash'),er=sum('er'),akk=sum('akk'),actual=sum('commission'),operations=sum('operations'),cityIncome=sum('cityIncome');
+  return {cash,er,akk,actual,operations,cityIncome,erPct:cash>0&&er!=null?er/cash*100:null,
     akkPct:cash>0&&akk!=null?akk/cash*100:null,avg:operations>0&&actual!=null?actual/operations:null};
 }
 const plot=(mount,months,city,metric,rows)=>{
@@ -70,7 +70,7 @@ function mapHTML(root){
     '<div class="rl-filterbar tech-filter"><label>Период<select id="tmMonth"></select></label><label>Город<select id="tmCity"></select></label><label>Банк<select id="tmBank"><option value="">Все АКК</option>'+BANKS.map(b=>'<option>'+esc(b)+'</option>').join('')+'</select></label><label>График<select id="tmMetric"><option value="er">ЭР / наличные</option><option value="akk">АКК / наличные</option></select></label></div>'+
     '<div id="tmStatus" class="rl-soft"></div><div id="tmKpis" class="rl-kpis"></div>'+
     '<div class="panel"><h3>Город vs лучшая / худшая практика</h3><div id="tmChart"></div></div>'+
-    '<div class="panel"><h3>Города за выбранный месяц</h3><p class="rl-soft">Сортировка — по выбранному проникновению; неизвестные показатели не заменяются нулём.</p><div class="rl-table-wrap"><table class="rl-table"><thead><tr><th>Город</th><th>Наличные сделки</th><th>ЭР</th><th>ЭР / наличные</th><th>АКК</th><th>АКК / наличные</th><th>Выбранный банк</th><th>Медиана чека</th><th>Средняя комиссия банка</th></tr></thead><tbody id="tmRows"></tbody></table></div><div id="tmCount" class="rl-soft"></div></div>'+
+    '<div class="panel"><h3>Города за выбранный месяц</h3><p class="rl-soft">Сортировка — по выбранному проникновению; неизвестные показатели не заменяются нулём. Средняя комиссия — на операцию из реестра (не на уникальную сделку).</p><div class="rl-table-wrap"><table class="rl-table"><thead><tr><th>Город</th><th>Наличные сделки</th><th>ЭР</th><th>ЭР / наличные</th><th>АКК</th><th>АКК / наличные</th><th>Выбранный банк</th><th>Медиана чека</th><th>Средняя комиссия банка</th></tr></thead><tbody id="tmRows"></tbody></table></div><div id="tmCount" class="rl-soft"></div></div>'+
     '<div class="workspace-footnote" id="tmDiag">Вычисления не загружены.</div>';
 }
 function renderMap(data){
@@ -86,7 +86,8 @@ function renderMap(data){
     block('ЭР',num(totals.er),pct(totals.erPct)+' к наличным'),
     block('Аккредитивы',num(totals.akk),pct(totals.akkPct)+' к наличным; без НС и ДомКлик'),
     block(bank||'Средняя комиссия',bank?num(bankCount):rub(totals.avg),bank?pct(bankPct)+' к наличным':'от банка / операция'),
-    block('Комиссия от банка',rub(totals.actual),'Реестр услуг, дата оказания')
+    block('Комиссия от банка',rub(totals.actual),'Реестр услуг, дата оказания'),
+    block('Доход города после ЦО',rub(totals.cityIncome),'Только операции с известным удержанием')
   ].join('');
   const active=byMonth.filter(r=>r.cash!==null||r.er!==null||r.akk!==null);
   const sorted=[...active].sort((a,b)=>{
@@ -96,7 +97,7 @@ function renderMap(data){
   document.getElementById('tmRows').innerHTML=sorted.slice(0,150).map(r=>
     '<tr><td><b>'+esc(r.city)+'</b></td><td>'+num(r.cash)+'</td><td>'+num(r.er)+'</td><td>'+pct(r.erPenetration)+'</td><td>'+num(r.akk)+'</td><td>'+pct(r.akkPenetration)+'</td><td>'+ (bank?num(r.banks[bank]):'—')+'</td><td>'+rub(r.median)+'</td><td>'+rub(r.avgCommission)+'</td></tr>'
   ).join('')||'<tr><td colspan="9" class="rl-empty">По выбранному месяцу данных нет.</td></tr>';
-  document.getElementById('tmCount').textContent='Показано '+Math.min(150,sorted.length)+' из '+sorted.length+' городов';
+  document.getElementById('tmCount').textContent='Показано '+Math.min(150,sorted.length)+' из '+sorted.length+' городов. Итоги суммируют только присутствующие наблюдения; неполное покрытие не заменяется нулём.';
   const chartMonths=data.months.slice(-18);
   plot(document.getElementById('tmChart'),chartMonths,city,metric,data.rows);
 }
